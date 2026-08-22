@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Road Beacon</title>
+<style>
+  :root{--night:#131628;--night2:#1b1f38;--line:#2e3355;--cream:#f2ead8;--dim:#a9a695;--ember:#f28b2e;--gold:#d9b64a}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--night);color:var(--cream);font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+       display:flex;flex-direction:column;padding:max(1rem,env(safe-area-inset-top)) 1.25rem max(1rem,env(safe-area-inset-bottom));
+       text-align:center;-webkit-user-select:none;user-select:none}
+  header{font-family:ui-monospace,Menlo,monospace;font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);padding:.5rem 0 1rem}
+  main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1.1rem}
+  #place{font-size:clamp(2rem,10vw,3.2rem);line-height:1.08;font-weight:600;text-wrap:balance}
+  #stretch{color:var(--dim);font-style:italic;font-size:1.05rem}
+  .next{background:var(--night2);border:1px solid var(--line);border-radius:14px;padding:1rem;margin-top:.6rem}
+  .next .lbl{font-family:ui-monospace,Menlo,monospace;font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold)}
+  #nextname{font-size:1.4rem;margin-top:.25rem}
+  #nextdist{color:var(--ember);font-family:ui-monospace,Menlo,monospace;font-size:1rem;margin-top:.25rem;font-variant-numeric:tabular-nums}
+  .controls{display:flex;flex-direction:column;gap:.6rem;padding-top:1rem}
+  button{border:0;border-radius:12px;padding:1rem;font:700 1.05rem/1 inherit;cursor:pointer}
+  #start{background:var(--ember);color:#20140a}
+  .toggle{background:var(--night2);color:var(--cream);border:1px solid var(--line);font-weight:400;font-size:.95rem}
+  .toggle.on{border-color:var(--gold);color:var(--gold)}
+  #status{color:var(--dim);font-size:.8rem;font-family:ui-monospace,Menlo,monospace;min-height:1.2em;padding-top:.5rem}
+  .hid{display:none}
+</style>
+</head>
+<body>
+<header>Road Beacon · I-5 North</header>
+<main>
+  <div id="idle">
+    <p style="color:var(--dim);max-width:26rem;margin:0 auto 1rem">Keep this page open in a mount while you play by voice in the Claude app. It watches the GPS, shows which thin place you are in, and — if you allow it — speaks each arrival out loud so you and the Game Master both hear it.</p>
+  </div>
+  <div id="live" class="hid">
+    <div id="stretch">You are traveling</div>
+    <div id="place">—</div>
+    <div class="next">
+      <div class="lbl">Next thin place</div>
+      <div id="nextname">—</div>
+      <div id="nextdist">—</div>
+    </div>
+  </div>
+</main>
+<div class="controls">
+  <button class="toggle" id="scen">World: The Fifth Road</button>
+  <button class="toggle on" id="voice">Spoken arrivals: on</button>
+  <button id="start">Start the beacon</button>
+</div>
+<p id="status"></p>
+<script>
+"use strict";
+// [lat, lng, real name, Fifth Road name, Dragon Road name]
+const W=[
+[37.79,-122.39,"the Bay crossing","the Gate of Tides","the Dragon's Tailtip"],
+[38.36,-121.97,"Vacaville","the Borderlands","the Outer Ward"],
+[38.88,-121.97,"the I-5 junction at Dunnigan","the Shortcut That Remembers","the Trapdoor Hall"],
+[39.15,-122.15,"Williams","the Sea of Gold","the Golden Barrens"],
+[39.52,-122.19,"Willows","the Grove of Whispers","the Listening Grove"],
+[40.18,-122.24,"Red Bluff","the Rust Ford","the Blood Ford"],
+[40.59,-122.39,"Redding","the Dial of the Turning","the Sundial Vault"],
+[40.75,-122.32,"Shasta Lake","the Drowned Town","the Flooded Crypt"],
+[41.15,-122.32,"Castle Crags","the Broken Castle","the Shattered Keep"],
+[41.23,-122.27,"Dunsmuir","the Iron Serpent's Rest","the Wyrm-Rail"],
+[41.31,-122.31,"Mount Shasta","the Sleeping Mountain","the Dragon's Heart"],
+[41.42,-122.39,"Weed","the Last Crossroads","the Forked Gallery"],
+[41.74,-122.63,"Yreka","the Gilded Exile","the Goldpit Court"],
+[42.05,-122.61,"Siskiyou Summit","the Night Gate","the Shoulder Gate"],
+[42.19,-122.71,"Ashland","the City of Masks","the Masquerade Hall"],
+[42.33,-122.87,"Medford","the Rogue's Vale","the Bandit Warrens"],
+[42.44,-123.33,"Grants Pass","the Rogue Crossing","the Underbridge"],
+[42.69,-123.40,"Wolf Creek","the Waystation of the Wolf","the Wolf's Landing"],
+[42.93,-123.28,"Canyonville","the Deep Cut","the Narrow Stair"],
+[43.22,-123.35,"Roseburg","the River of Turns","the Winding Gallery"],
+[44.05,-123.09,"Eugene","the Green Vale","the Moss Halls"],
+[44.94,-123.03,"Salem","the Quiet Capital","the Silent Throne"],
+[45.52,-122.68,"Portland","Bridgetown","the Dragon's Skull"]
+];
+let scen=3, speak=true, announced=new Set(), wakeLock=null, watchId=null;
+const $=id=>document.getElementById(id);
+const mi=(a,b,c,d)=>{const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,
+  h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;
+  return 3959*2*Math.asin(Math.sqrt(h))};
+function say(t){if(!speak)return;try{const u=new SpeechSynthesisUtterance(t);u.rate=.95;speechSynthesis.speak(u)}catch(e){}}
+function update(p){
+  const{latitude:la,longitude:lo}=p.coords;
+  let ni=-1,nd=1e9,ci=-1,cd=1e9;
+  W.forEach((w,i)=>{const d=mi(la,lo,w[0],w[1]);
+    if(d<cd){cd=d;ci=i}
+    if(w[0]>la+0.02&&d<nd){nd=d;ni=i}});
+  const here=W[ci];
+  $("place").textContent=cd<6?here[scen]:"the open road between thin places";
+  $("stretch").textContent=cd<6?`You are in ${here[2]}'s reach`:`Nearest: ${here[scen]} (${here[2]}), ${cd.toFixed(0)} mi`;
+  if(ni>=0){const n=W[ni];
+    $("nextname").textContent=`${n[scen]} — ${n[2]}`;
+    $("nextdist").textContent=`${nd.toFixed(1)} miles north`;
+    if(nd<4&&!announced.has(ni)){announced.add(ni);
+      say(`Approaching ${n[scen]}. In the other world, this is ${n[2]}.`)}
+  }else{$("nextname").textContent="Journey's end";$("nextdist").textContent="—"}
+  $("status").textContent=`gps ±${Math.round(p.coords.accuracy)} m`;
+}
+async function lock(){try{if("wakeLock"in navigator)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&watchId!==null)lock()});
+$("scen").onclick=e=>{scen=scen===3?4:3;
+  e.target.textContent=scen===3?"World: The Fifth Road":"World: The Dragon Road";announced.clear()};
+$("voice").onclick=e=>{speak=!speak;e.target.classList.toggle("on",speak);
+  e.target.textContent=speak?"Spoken arrivals: on":"Spoken arrivals: off";if(speak)say("Beacon voice on.")};
+$("start").onclick=()=>{
+  if(!("geolocation"in navigator)){$("status").textContent="no geolocation available";return}
+  say("The beacon is lit.");
+  lock();
+  $("idle").classList.add("hid");$("live").classList.remove("hid");
+  $("start").textContent="Beacon lit";$("start").disabled=true;$("start").style.opacity=.55;
+  watchId=navigator.geolocation.watchPosition(update,
+    err=>{$("status").textContent="gps error: "+err.message},
+    {enableHighAccuracy:true,maximumAge:15000,timeout:30000});
+};
+</script>
+</body>
+</html>
