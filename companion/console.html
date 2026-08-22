@@ -85,7 +85,7 @@
     <input id="bridgeurl" type="text" autocomplete="off" placeholder="http://localhost:8787">
     <label for="btoken">Bridge token (printed when the bridge starts)</label>
     <input id="btoken" type="password" autocomplete="off" placeholder="paste once">
-    <div id="bridgewarn">This page is https and the bridge URL is plain http on a non-localhost host — the browser will block it. Use it from Chrome on the laptop (localhost is allowed), or tunnel the bridge to an https URL. On a phone, "localhost" is the phone itself — pick the API-key provider there instead.</div>
+    <div id="bridgewarn">This page's https origin cannot call a plain-http bridge from here. Safari blocks even localhost; Chrome allows localhost only. The reliable way: open the console the bridge itself serves — <b>http://localhost:8787/</b> — same origin, zero setup, token auto-filled. On a phone, "localhost" is the phone itself — use the API-key provider there instead.</div>
     <label for="bmodel">Model</label>
     <select id="bmodel">
       <option value="claude-sonnet-5">Sonnet 5 — recommended</option>
@@ -266,6 +266,7 @@ function onFix(lat,lng,src,meta){
     +(ni>=0?" · next "+W[ni][2]+" "+nd.toFixed(0)+" mi":"")
     +(src==="bridge"?" · via laptop":"");
   if(ni>=0&&nd<4&&lastWpt!==ni){lastWpt=ni;pendingNotes.push("[road-sync: the player is approaching "+W[ni][2]+"]")}
+  pushState(false);
 }
 function startGeo(){
   if("geolocation"in navigator){
@@ -278,12 +279,11 @@ function startGeo(){
   // Laptop fallback: the bridge can read CoreLocationCLI. Poll it whenever the
   // browser has not produced a recent fix of its own.
   if(provider()==="bridge"&&!bridgeGeoTimer){
-    const base=cfg(LS.bridge,"http://localhost:8787").replace(/\/+$/,"");
     bridgeGeoTimer=setInterval(async()=>{
       if(!running||Date.now()-lastBrowserFixAt<45000)return;
       try{
-        const r=await fetch(base+"/location",{signal:AbortSignal.timeout(15000),
-          headers:{"x-bridge-token":cfg(LS.btoken)}});
+        const r=await fetch(bridgeBase()+"/location",{signal:AbortSignal.timeout(15000),
+          headers:{"x-bridge-token":btok()}});
         if(!r.ok)return;
         const j=await r.json();
         if(j&&j.ok)onFix(j.latitude,j.longitude,"bridge",{speedMps:j.speedMps,locality:j.locality});
@@ -306,6 +306,16 @@ function roadContext(){
 
 /* ---------- llm providers ---------- */
 function provider(){return cfg(LS.provider,"bridge")}
+// When this page is served BY the bridge (http://localhost:8787/), the bridge
+// injects its token and the API is same-origin — zero configuration needed.
+function servedByBridge(){return typeof window.BRIDGE_LOCAL_TOKEN==="string"}
+function bridgeBase(){
+  const stored=localStorage.getItem(LS.bridge);
+  if(stored)return stored.replace(/\/+$/,"");
+  if(servedByBridge())return location.origin;
+  return"http://localhost:8787";
+}
+function btok(){return localStorage.getItem(LS.btoken)||(servedByBridge()?window.BRIDGE_LOCAL_TOKEN:"")}
 function activeModel(){
   const p=provider();
   if(p==="anthropic")return cfg(LS.amodel,"claude-sonnet-5");
@@ -334,9 +344,8 @@ async function callLLM({system,messages,maxTokens}){
     return j.content.filter(c=>c.type==="text").map(c=>c.text).join(" ").trim();
   }
   if(p==="bridge"){
-    const base=cfg(LS.bridge,"http://localhost:8787").replace(/\/+$/,"");
-    const r=await fetch(base+"/chat",{method:"POST",signal:llmTimeout(),
-      headers:{"content-type":"application/json","x-bridge-token":cfg(LS.btoken)},
+    const r=await fetch(bridgeBase()+"/chat",{method:"POST",signal:llmTimeout(),
+      headers:{"content-type":"application/json","x-bridge-token":btok()},
       body:JSON.stringify({system,messages,model})});
     if(!r.ok)throw new Error("bridge "+r.status+": "+(await r.text()).slice(0,200));
     const j=await r.json();
@@ -360,6 +369,26 @@ async function callLLM({system,messages,maxTokens}){
   };
   try{return await attempt("max_completion_tokens")}
   catch(e){if(e.status===400)return attempt("max_tokens");throw e}
+}
+
+/* ---------- live state for the map/passenger view ---------- */
+let lastHeardText=null,lastStatePush=0;
+function pushState(force){
+  if(provider()!=="bridge")return;
+  if(!force&&Date.now()-lastStatePush<10000)return;
+  lastStatePush=Date.now();
+  const msgs=loadMsgs();
+  const lastA=[...msgs].reverse().find(m=>m.role==="assistant");
+  fetch(bridgeBase()+"/state",{method:"POST",signal:AbortSignal.timeout(10000),
+    headers:{"content-type":"application/json","x-bridge-token":btok()},
+    body:JSON.stringify({
+      world:scn,worldName:SCN[scn].name,turns:msgs.length,paused,
+      lastReply:lastA?lastA.content.slice(0,800):null,
+      lastHeard:lastHeardText,
+      fix:lastFix?{lat:lastFix.latitude,lng:lastFix.longitude,
+        speedMps:fixMeta?fixMeta.speedMps:null,locality:fixMeta?fixMeta.locality:null}:null,
+      at:Date.now()})
+  }).catch(()=>{});
 }
 
 /* ---------- game turns ---------- */
@@ -391,10 +420,12 @@ async function gmTurn(userText,heardLabel){
     const reply=await callLLM({maxTokens:450,system:sys,messages:msgs});
     msgs.push({role:"assistant",content:reply});
     saveMsgs(msgs,world);lastExchange=Date.now();failedTurn=null;
+    if(heardLabel)lastHeardText=heardLabel;
     if(world===scn){
       showGM(reply,heardLabel);
       if(!paused)say(reply);else setState("paused — say resume","paused");
     }
+    pushState(true);
   }catch(e){
     console.error(e);
     msgs.pop();saveMsgs(msgs,world);
@@ -510,8 +541,9 @@ function syncSettings(){
   $("provider").value=provider();
   $("key").value=cfg(LS.key);
   $("amodel").value=cfg(LS.amodel,"claude-sonnet-5");
-  $("bridgeurl").value=cfg(LS.bridge,"http://localhost:8787");
+  $("bridgeurl").value=cfg(LS.bridge,bridgeBase());
   $("btoken").value=cfg(LS.btoken);
+  $("btoken").placeholder=servedByBridge()?"auto — served by bridge":"paste once";
   $("bmodel").value=cfg(LS.bmodel,"claude-sonnet-5");
   $("obase").value=cfg(LS.obase,"https://api.openai.com/v1");
   $("okey").value=cfg(LS.okey);
@@ -523,8 +555,8 @@ function syncSettings(){
 function showGroups(){
   const p=$("provider").value;
   ["bridge","anthropic","openai"].forEach(x=>$("g-"+x).classList.toggle("on",x===p));
-  const b=$("bridgeurl").value.trim();
-  $("bridgewarn").style.display=(location.protocol==="https:"&&/^http:\/\//.test(b)&&!/^http:\/\/(localhost|127\.0\.0\.1)/.test(b))?"block":"none";
+  const b=$("bridgeurl").value.trim()||bridgeBase();
+  $("bridgewarn").style.display=(p==="bridge"&&location.protocol==="https:"&&/^http:\/\//.test(b))?"block":"none";
 }
 function persistSettings(){
   localStorage.setItem(LS.provider,$("provider").value);

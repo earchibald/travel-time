@@ -14,6 +14,10 @@ Voice-playable adventure games for the San Francisco → Oregon drive on I-5.
 | Live artifact | https://claude.ai/code/artifact/564639c1-2447-42c3-a3ac-bf5806da14b2 |
 | Pages publish script | `scripts/publish-beacon.sh` |
 
+## The bridge serves everything locally
+
+`bridge/server.mjs` also serves the repo statically: **http://localhost:8787/** is the console (same origin — immune to Safari's mixed-content block, token auto-injected) and **http://localhost:8787/map** is the live world map. The map shows the route as a ley-line with a moving position marker, world-specific place names, the GM's latest turn, driver quote, speed, and next thin place; the console POSTs state to `/state` after every turn and the map polls it. For a passenger device, run `BIND=0.0.0.0 npm start` — the startup banner prints a tokenized passenger map URL for the car hotspot. All API routes require the token (`bridge/.token`); static responses carry no CORS headers so foreign pages cannot read the injected token.
+
 ## The Console
 
 `companion/console.html` runs the whole experience hands-free in one page: speech recognition in, Game Master reply out loud, GPS road-sync injected automatically, wake lock, and per-world saves in localStorage. Voice commands: pause, resume, save the game, switch to <world>, restart the game (with confirmation), retry, stop listening / start listening, end the session. Providers (Settings): Claude bridge (laptop OAuth via the Agent SDK), Anthropic API key, or any OpenAI-compatible endpoint (base URL + key + model). Scenario prompts are fetched from `game/*.md` (single source of truth) and cached for dead zones.

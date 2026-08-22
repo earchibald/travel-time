@@ -6,10 +6,11 @@
 // Run:  cd bridge && npm install && npm start
 // Then in the console settings choose "Claude bridge" (http://localhost:8787).
 import http from "node:http";
+import os from "node:os";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
@@ -34,6 +35,62 @@ function authorized(req) {
   const presented = req.headers["x-bridge-token"] || url.searchParams.get("token");
   return presented === TOKEN;
 }
+
+// ---- static serving --------------------------------------------------------
+// Serving the console/map from the bridge itself puts them on the SAME origin
+// as the API: no mixed-content blocks (Safari refuses https→http://localhost),
+// and localhost is a secure context, so mic/speech/wake-lock all work.
+// Static responses deliberately carry NO CORS headers, so a foreign web page
+// can never read the token we inject into our own pages.
+const ROOT = resolve(join(dirname(fileURLToPath(import.meta.url)), ".."));
+const MIME = {
+  html: "text/html; charset=utf-8",
+  md: "text/markdown; charset=utf-8",
+  js: "text/javascript; charset=utf-8",
+  css: "text/css; charset=utf-8",
+  svg: "image/svg+xml",
+  png: "image/png",
+  json: "application/json",
+};
+function serveStatic(pathname, res) {
+  if (pathname === "/") pathname = "/companion/console.html";
+  if (pathname === "/map") pathname = "/companion/map.html";
+  const segs = pathname.split("/").filter((s) => s && s !== ".." && !s.startsWith("."));
+  const file = resolve(join(ROOT, ...segs));
+  if (!file.startsWith(ROOT + sep)) {
+    res.writeHead(403, { "content-type": "application/json" });
+    res.end('{"error":"forbidden"}');
+    return;
+  }
+  const ext = file.split(".").pop();
+  let data;
+  try {
+    data = readFileSync(file);
+  } catch {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end('{"error":"not found"}');
+    return;
+  }
+  if (!(ext in MIME)) {
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end('{"error":"file type not served"}');
+    return;
+  }
+  if (ext === "html") {
+    // Same-origin pages get the token handed to them: zero-config setup.
+    const html = data
+      .toString("utf8")
+      .replace("</body>", `<script>window.BRIDGE_LOCAL_TOKEN=${JSON.stringify(TOKEN)};</script></body>`);
+    res.writeHead(200, { "content-type": MIME.html });
+    res.end(html);
+    return;
+  }
+  res.writeHead(200, { "content-type": MIME[ext] });
+  res.end(data);
+}
+
+// ---- shared live state (console writes, map reads) -------------------------
+let lastState = null, lastStateAt = 0;
 
 // Location via the CoreLocationCLI tool (brew install corelocationcli), so a
 // laptop with no browser GPS can still feed road-sync. Cached for 20s.
@@ -124,27 +181,54 @@ async function gmReply({ system, messages, model }) {
 }
 
 const server = http.createServer((req, res) => {
+  const pathname = new URL(req.url, "http://x").pathname;
   if (req.method === "OPTIONS") {
     cors(res);
     res.writeHead(204);
     res.end();
     return;
   }
-  if (req.method === "GET" && req.url === "/health") {
+  if (req.method === "GET" && pathname === "/health") {
     sendJSON(res, 200, { ok: true, auth: "claude-code-oauth" });
+    return;
+  }
+  const isApi = pathname === "/location" || pathname === "/chat" || pathname === "/state";
+  if (req.method === "GET" && !isApi) {
+    serveStatic(pathname, res);
     return;
   }
   if (!authorized(req)) {
     sendJSON(res, 401, { error: "missing or wrong bridge token (see server startup output)" });
     return;
   }
-  if (req.method === "GET" && req.url.startsWith("/location")) {
+  if (req.method === "GET" && pathname === "/state") {
+    sendJSON(res, 200, { ok: true, state: lastState, ageMs: lastState ? Date.now() - lastStateAt : null });
+    return;
+  }
+  if (req.method === "POST" && pathname === "/state") {
+    let body = "";
+    req.on("data", (c) => {
+      body += c;
+      if (body.length > 100_000) req.destroy();
+    });
+    req.on("end", () => {
+      try {
+        lastState = JSON.parse(body);
+        lastStateAt = Date.now();
+        sendJSON(res, 200, { ok: true });
+      } catch {
+        sendJSON(res, 400, { error: "bad json" });
+      }
+    });
+    return;
+  }
+  if (req.method === "GET" && pathname === "/location") {
     getLocation()
       .then((loc) => sendJSON(res, 200, { ok: true, ...loc, at: lastLocAt }))
       .catch((e) => sendJSON(res, 503, { error: String(e.message).slice(0, 200) }));
     return;
   }
-  if (req.method === "POST" && req.url.startsWith("/chat")) {
+  if (req.method === "POST" && pathname === "/chat") {
     let body = "";
     req.on("data", (c) => {
       body += c;
@@ -179,5 +263,19 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Long Road bridge listening on http://${HOST}:${PORT}`);
   console.log("Auth: your existing Claude Code login (OAuth). No API key involved.");
-  console.log(`Bridge token (paste into console Settings once): ${TOKEN}`);
+  console.log("");
+  console.log(`  Play (this machine):  http://localhost:${PORT}/`);
+  console.log(`  Map  (this machine):  http://localhost:${PORT}/map`);
+  if (HOST !== "127.0.0.1") {
+    const ips = Object.values(os.networkInterfaces()).flat()
+      .filter((i) => i && i.family === "IPv4" && !i.internal).map((i) => i.address);
+    for (const ip of ips) {
+      console.log(`  Passenger map:        http://${ip}:${PORT}/companion/map.html?token=${TOKEN}`);
+    }
+    console.log("  (BIND is open: anyone on this network with the token can use the bridge)");
+  } else {
+    console.log(`  Passenger map: restart with  BIND=0.0.0.0 npm start  to share on the car hotspot`);
+  }
+  console.log("");
+  console.log(`Bridge token (only needed for pages NOT served from this bridge): ${TOKEN}`);
 });

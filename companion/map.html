@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Long Road Map</title>
+<style>
+  :root{--night:#131628;--night2:#1b1f38;--line:#2e3355;--cream:#f2ead8;--dim:#a9a695;--ember:#f28b2e;--gold:#d9b64a;--ok:#7bc47f;--bad:#e05d5d}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--night);color:var(--cream);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    display:flex;flex-direction:column}
+  header{display:flex;justify-content:space-between;align-items:center;
+    padding:max(.8rem,env(safe-area-inset-top)) 1.1rem .6rem;border-bottom:1px solid var(--line)}
+  header .brand{font-family:ui-monospace,Menlo,monospace;font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold)}
+  #live{display:flex;align-items:center;gap:.45rem;font-family:ui-monospace,Menlo,monospace;font-size:.7rem;color:var(--dim)}
+  #dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  #dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  #dot.stale{background:var(--ember)}
+  .cols{flex:1;display:flex;min-height:0}
+  #mapwrap{flex:1.1;overflow-y:auto;border-right:1px solid var(--line)}
+  #mapwrap svg{display:block;width:100%;height:auto}
+  #board{flex:1;display:flex;flex-direction:column;gap:.8rem;padding:1rem 1.1rem max(1rem,env(safe-area-inset-bottom));overflow-y:auto}
+  .chip{align-self:flex-start;border:1px solid var(--ember);color:var(--ember);border-radius:999px;padding:.3rem .9rem;font-size:.95rem}
+  #region{font-size:1.7rem;font-weight:600;line-height:1.1;text-wrap:balance}
+  #regionreal{color:var(--dim);font-style:italic;font-size:.95rem}
+  .panel{background:var(--night2);border:1px solid var(--line);border-radius:12px;padding:.9rem 1rem}
+  .panel .lbl{font-family:ui-monospace,Menlo,monospace;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:.35rem}
+  #gm{font-size:1rem;line-height:1.55;max-height:38vh;overflow-y:auto}
+  #heard{color:var(--gold);font-style:italic;font-size:.9rem}
+  .tele{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .tele .panel{padding:.6rem .8rem}
+  .tele b{font-size:1.15rem;font-variant-numeric:tabular-nums}
+  #pausedbadge{display:none;align-self:flex-start;border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:.25rem .7rem;font-family:ui-monospace,Menlo,monospace;font-size:.7rem;letter-spacing:.2em}
+  #waiting{padding:2rem;color:var(--dim);font-style:italic;text-align:center}
+  @media (max-width:700px){.cols{flex-direction:column}#mapwrap{border-right:0;border-bottom:1px solid var(--line);max-height:52vh;flex:none}}
+  @keyframes pulse{from{r:7}to{r:11}}
+  #marker{animation:pulse 1.2s infinite alternate;fill:var(--ember)}
+  @media (prefers-reduced-motion: reduce){#marker{animation:none}}
+  .wname{fill:var(--cream);font-size:11px}
+  .wreal{fill:#7e7b6d;font-size:8.5px}
+  .wdot{fill:var(--night);stroke:var(--gold);stroke-width:2}
+  .wdot.passed{fill:var(--gold)}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">The Long Road · Live Map</span>
+  <span id="live"><span id="dot"></span><span id="age">connecting…</span></span>
+</header>
+<div class="cols">
+  <div id="mapwrap"><div id="waiting">Waiting for the console to report…<br>Start the drive on the driver's screen and this map wakes up.</div></div>
+  <div id="board">
+    <span class="chip" id="world">—</span>
+    <div>
+      <div id="region">The road sleeps</div>
+      <div id="regionreal"></div>
+    </div>
+    <span id="pausedbadge">PAUSED</span>
+    <div class="panel"><div class="lbl">The Game Master, just now</div><div id="gm">—</div></div>
+    <div class="panel"><div class="lbl">Last heard from the driver</div><div id="heard">—</div></div>
+    <div class="tele">
+      <div class="panel"><div class="lbl">Next thin place</div><b id="next">—</b></div>
+      <div class="panel"><div class="lbl">Distance</div><b id="nextmi">—</b></div>
+      <div class="panel"><div class="lbl">Speed</div><b id="speed">—</b></div>
+      <div class="panel"><div class="lbl">Story turns</div><b id="turns">—</b></div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+// [lat, lng, real, Fifth Road, Dragon Road, Corridor Five]
+// Duplicated from console/beacon on purpose: every companion page stays a
+// single self-contained file. Change waypoints in ALL files.
+const W=[
+[37.79,-122.39,"the Bay crossing","the Gate of Tides","the Dragon's Tailtip","the Flooded Intake"],
+[38.36,-121.97,"Vacaville","the Borderlands","the Outer Ward","the Pressure Steps"],
+[38.88,-121.97,"Dunnigan","the Shortcut That Remembers","the Trapdoor Hall","the Bypass Trunk"],
+[39.15,-122.15,"Williams","the Sea of Gold","the Golden Barrens","the Agricultural Decks"],
+[39.52,-122.19,"Willows","the Grove of Whispers","the Listening Grove","the Listening Farm"],
+[40.18,-122.24,"Red Bluff","the Rust Ford","the Blood Ford","the Coolant Ford"],
+[40.59,-122.39,"Redding","the Dial of the Turning","the Sundial Vault","the Solar Gauge"],
+[40.75,-122.32,"Shasta Lake","the Drowned Town","the Flooded Crypt","the Drowned Deck"],
+[41.15,-122.32,"Castle Crags","the Broken Castle","the Shattered Keep","the Broken Array"],
+[41.23,-122.27,"Dunsmuir","the Iron Serpent's Rest","the Wyrm-Rail","the Old Freight Spine"],
+[41.31,-122.31,"Mount Shasta","the Sleeping Mountain","the Dragon's Heart","the Drive Cone"],
+[41.42,-122.39,"Weed","the Last Crossroads","the Forked Gallery","the Junction"],
+[41.74,-122.63,"Yreka","the Gilded Exile","the Goldpit Court","the Salvage Court"],
+[42.05,-122.61,"Siskiyou Summit","the Night Gate","the Shoulder Gate","Bulkhead Gate Four"],
+[42.19,-122.71,"Ashland","the City of Masks","the Masquerade Hall","the Theater Deck"],
+[42.33,-122.87,"Medford","the Rogue's Vale","the Bandit Warrens","the Scrapper Warrens"],
+[42.44,-123.33,"Grants Pass","the Rogue Crossing","the Underbridge","the Wayfinders' Berth"],
+[42.69,-123.40,"Wolf Creek","the Waystation of the Wolf","the Wolf's Landing","the Dead Wayfinders' Berth"],
+[42.93,-123.28,"Canyonville","the Deep Cut","the Narrow Stair","the Narrow Duct"],
+[43.22,-123.35,"Roseburg","the River of Turns","the Winding Gallery","the Winding Manifold"],
+[44.05,-123.09,"Eugene","the Green Vale","the Moss Halls","the Green Decks"],
+[44.94,-123.03,"Salem","the Quiet Capital","the Silent Throne","the Quiet Ring"],
+[45.52,-122.68,"Portland","Bridgetown","the Dragon's Skull","the Bridge"]];
+const COL={fifth:3,dragon:4,corridor:5};
+const $=id=>document.getElementById(id);
+// Read lazily: the bridge injects window.BRIDGE_LOCAL_TOKEN in a script that
+// runs AFTER this one, so a load-time snapshot would always miss it.
+const tok=()=>(typeof window.BRIDGE_LOCAL_TOKEN==="string"&&window.BRIDGE_LOCAL_TOKEN)
+  ||new URLSearchParams(location.search).get("token")||"";
+const BASE=location.protocol.startsWith("http")?location.origin:"http://localhost:8787";
+
+const mi=(a,b,c,d)=>{const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,
+  h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;
+  return 3959*2*Math.asin(Math.sqrt(h))};
+
+/* ---- draw the route once (pure DOM building — every string below is from
+   the hardcoded tables above, never from network data) ---- */
+const LAT0=37.55,LAT1=45.75,H=1180,M=46,VW=360;
+const NS="http://www.w3.org/2000/svg";
+const Y=lat=>M+(1-(lat-LAT0)/(LAT1-LAT0))*(H-2*M);
+const X=lng=>180+(lng+122.65)*115;
+let markerEl=null;
+function el(name,attrs,text){
+  const e=document.createElementNS(NS,name);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);
+  if(text!=null)e.textContent=text;
+  return e;
+}
+function buildMap(){
+  const svg=el("svg",{viewBox:"0 0 "+VW+" "+H,role:"img","aria-label":"Stylized map of the road north with waypoints"});
+  const defs=el("defs",{}),grad=el("linearGradient",{id:"north",x1:0,y1:0,x2:0,y2:1});
+  grad.appendChild(el("stop",{offset:"0","stop-color":"#54345c","stop-opacity":".35"}));
+  grad.appendChild(el("stop",{offset:".18","stop-color":"#131628","stop-opacity":"0"}));
+  defs.appendChild(grad);svg.appendChild(defs);
+  svg.appendChild(el("rect",{width:VW,height:H,fill:"#131628"}));
+  svg.appendChild(el("rect",{width:VW,height:H,fill:"url(#north)"}));
+  const pts=W.map(w=>[X(w[1]),Y(w[0])]);
+  const d=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  svg.appendChild(el("path",{d,fill:"none",stroke:"#22263f","stroke-width":10,"stroke-linejoin":"round","stroke-linecap":"round"}));
+  svg.appendChild(el("path",{d,fill:"none",stroke:"#d9b64a","stroke-width":2.2,"stroke-dasharray":"1 7","stroke-linecap":"round"}));
+  // Stagger labels in tightly-packed stretches (the Shasta cluster) and drop
+  // the real-name subtext where rows would collide.
+  let lastSide="",lastY=-999;
+  W.forEach((w,i)=>{
+    const [x,y]=pts[i];
+    let side=x<180?"start":"end";
+    if(y-lastY<30&&lastSide)side=lastSide==="start"?"end":"start";
+    // never let a label run off the edge: flip it back inboard if too wide
+    const est=Math.max(w[3].length,w[2].length+2)*6.2;
+    if(side==="end"&&x-14-est<4)side="start";
+    if(side==="start"&&x+14+est>VW-4)side="end";
+    const gapPrev=i?y-pts[i-1][1]:99,gapNext=i<W.length-1?pts[i+1][1]-y:99;
+    const showReal=Math.min(gapPrev,gapNext)>=24;
+    const tx=side==="start"?x+14:x-14;
+    svg.appendChild(el("circle",{class:"wdot",id:"wd"+i,cx:x,cy:y,r:5.5}));
+    svg.appendChild(el("text",{class:"wname",id:"wn"+i,x:tx,y:y+3,"text-anchor":side},w[3]));
+    if(showReal)svg.appendChild(el("text",{class:"wreal",x:tx,y:y+14,"text-anchor":side},w[2]));
+    lastSide=side;lastY=y;
+  });
+  markerEl=el("circle",{id:"marker",r:8,cx:-20,cy:-20});
+  svg.appendChild(markerEl);
+  svg.appendChild(el("text",{x:VW/2,y:M-18,"text-anchor":"middle",class:"wreal",style:"letter-spacing:.3em"},"NORTH"));
+  $("mapwrap").replaceChildren(svg);
+}
+let nameCol=3;
+function setWorldNames(world){
+  const col=COL[world]||3;
+  if(col===nameCol)return;
+  nameCol=col;
+  W.forEach((w,i)=>{const t=$("wn"+i);if(t)t.textContent=w[col]});
+}
+function placeMarker(lat){
+  let i=0;
+  while(i<W.length-2&&W[i+1][0]<lat)i++;
+  const a=W[i],b=W[i+1];
+  const t=b[0]===a[0]?0:Math.max(0,Math.min(1,(lat-a[0])/(b[0]-a[0])));
+  markerEl.setAttribute("cx",(X(a[1])+(X(b[1])-X(a[1]))*t).toFixed(1));
+  markerEl.setAttribute("cy",(Y(a[0])+(Y(b[0])-Y(a[0]))*t).toFixed(1));
+  W.forEach((w,j)=>{const dd=$("wd"+j);if(dd)dd.classList.toggle("passed",w[0]<lat-0.02)});
+  // Keep the marker on screen without fighting a passenger who is browsing:
+  // only scroll when it has drifted out of the visible map area. Computed
+  // directly — scrollIntoView on SVG children is unreliable in some browsers.
+  const wrap=$("mapwrap"),mr=markerEl.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+  if(mr.top<wr.top+30||mr.bottom>wr.bottom-30){
+    const cy=parseFloat(markerEl.getAttribute("cy"))||0;
+    const scale=wrap.clientWidth/VW;
+    wrap.scrollTo({top:Math.max(0,cy*scale-wrap.clientHeight/2)});
+  }
+}
+
+/* ---- live polling ---- */
+let built=false;
+async function poll(){
+  try{
+    const r=await fetch(BASE+"/state?token="+encodeURIComponent(tok()),{signal:AbortSignal.timeout(8000)});
+    if(!r.ok)throw new Error("http "+r.status);
+    const j=await r.json();
+    if(!j.state){$("age").textContent="no game yet";$("dot").className="";return}
+    if(!built){buildMap();built=true}
+    const st=j.state,age=Math.round((j.ageMs||0)/1000);
+    $("dot").className=age<25?"on":"stale";
+    $("age").textContent=age<25?"LIVE":"updated "+age+"s ago";
+    $("world").textContent=st.worldName||"—";
+    $("turns").textContent=st.turns!=null?st.turns:"—";
+    $("pausedbadge").style.display=st.paused?"inline-block":"none";
+    if(st.lastReply)$("gm").textContent=st.lastReply;
+    $("heard").textContent=st.lastHeard||"—";
+    setWorldNames(st.world);
+    if(st.fix){
+      placeMarker(st.fix.lat);
+      let ci=-1,cd=1e9,ni=-1,nd=1e9;
+      W.forEach((w,i)=>{const d=mi(st.fix.lat,st.fix.lng,w[0],w[1]);
+        if(d<cd){cd=d;ci=i}
+        if(w[0]>st.fix.lat+0.02&&d<nd){nd=d;ni=i}});
+      const col=COL[st.world]||3;
+      $("region").textContent=cd<6?W[ci][col]:"the open road";
+      const loc=st.fix.locality&&st.fix.locality!==W[ci][2]?" · "+st.fix.locality:"";
+      $("regionreal").textContent=cd<6?W[ci][2]+loc:(st.fix.locality||"between thin places");
+      $("next").textContent=ni>=0?W[ni][col]:"journey's end";
+      $("nextmi").textContent=ni>=0?nd.toFixed(1)+" mi":"—";
+      $("speed").textContent=typeof st.fix.speedMps==="number"?
+        (st.fix.speedMps<0.7?"stopped":Math.round(st.fix.speedMps*2.237)+" mph"):"—";
+    }
+  }catch(e){
+    $("dot").className="";$("age").textContent="offline";
+  }
+}
+poll();setInterval(poll,5000);
+</script>
+</body>
+</html>
