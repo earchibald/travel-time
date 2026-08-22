@@ -4,12 +4,19 @@ Voice-playable adventure games for the San Francisco → Oregon drive on I-5.
 
 | Item | Location |
 |------|----------|
+| Voice console (hands-free, hosted) | `companion/console.html` → https://earchibald.github.io/travel-time/companion/console.html |
+| OAuth bridge (Claude Agent SDK, no API key) | `bridge/server.mjs` — `cd bridge && npm install && npm start` |
 | The Fifth Road GM prompt (mythic) | `game/the-fifth-road-gm-prompt.md` |
 | The Dragon Road GM prompt (fantasy RPG) | `game/the-dragon-road-gm-prompt.md` |
+| Corridor Five GM prompt (sci-fi) | `game/corridor-five-gm-prompt.md` |
 | GPS Road Beacon for mobile Safari | `companion/road-beacon.html` |
 | Companion hub page (published artifact) | `companion/the-fifth-road.html` |
 | Live artifact | https://claude.ai/code/artifact/564639c1-2447-42c3-a3ac-bf5806da14b2 |
 | Pages publish script | `scripts/publish-beacon.sh` |
+
+## The Console
+
+`companion/console.html` runs the whole experience hands-free in one page: speech recognition in, Game Master reply out loud, GPS road-sync injected automatically, wake lock, and per-world saves in localStorage. Voice commands: pause, resume, save the game, switch to <world>, restart the game (with confirmation), retry, stop listening / start listening, end the session. Providers (Settings): Claude bridge (laptop OAuth via the Agent SDK), Anthropic API key, or any OpenAI-compatible endpoint (base URL + key + model). Scenario prompts are fetched from `game/*.md` (single source of truth) and cached for dead zones.
 
 ## The scenarios
 

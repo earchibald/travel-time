@@ -1,0 +1,13 @@
+{
+  "name": "long-road-bridge",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Local OAuth bridge: serves the Long Road console via the Claude Agent SDK (Claude Code login, no API key).",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest"
+  }
+}

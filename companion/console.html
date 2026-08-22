@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Long Road Console</title>
+<style>
+  :root{--night:#131628;--night2:#1b1f38;--line:#2e3355;--cream:#f2ead8;--dim:#a9a695;--ember:#f28b2e;--gold:#d9b64a;--bad:#e05d5d;--ok:#7bc47f}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--night);color:var(--cream);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    display:flex;flex-direction:column;
+    padding:max(.8rem,env(safe-area-inset-top)) 1.1rem max(.8rem,env(safe-area-inset-bottom))}
+  header{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0 .8rem}
+  header .brand{font-family:ui-monospace,Menlo,monospace;font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold)}
+  header button{background:none;border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:.4rem .7rem;font:inherit;font-size:.8rem;cursor:pointer}
+  main{flex:1;display:flex;flex-direction:column;gap:.9rem;min-height:0}
+  #scenario{font-size:1.6rem;font-weight:600;text-align:center}
+  #orb{width:86px;height:86px;border-radius:50%;margin:0 auto;background:radial-gradient(circle at 38% 35%,#3a3f68,#1b1f38 70%);
+    border:2px solid var(--line);transition:all .25s ease}
+  #orb.listening{border-color:var(--gold);box-shadow:0 0 26px rgba(217,182,74,.35)}
+  #orb.thinking{border-color:var(--ember);box-shadow:0 0 26px rgba(242,139,46,.45);animation:pulse 1.1s infinite alternate}
+  #orb.speaking{border-color:var(--cream);box-shadow:0 0 30px rgba(242,234,216,.4)}
+  #orb.paused{border-color:var(--line);opacity:.55}
+  @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.07)}}
+  @media (prefers-reduced-motion: reduce){#orb.thinking{animation:none}}
+  #state{font-family:ui-monospace,Menlo,monospace;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);text-align:center;min-height:1.1em}
+  #gmtext{flex:1;overflow-y:auto;background:var(--night2);border:1px solid var(--line);border-radius:12px;padding:1rem;font-size:1.02rem;line-height:1.55;min-height:6rem}
+  #gmtext .you{color:var(--gold);font-style:italic;display:block;margin-top:.7rem;font-size:.9rem}
+  #road{font-family:ui-monospace,Menlo,monospace;font-size:.72rem;color:var(--dim);text-align:center;min-height:1em}
+  .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem}
+  .row button{border:1px solid var(--line);background:var(--night2);color:var(--cream);border-radius:10px;padding:.7rem .3rem;font:inherit;font-size:.85rem;cursor:pointer}
+  .row button.cur{border-color:var(--ember);color:var(--ember)}
+  #bigbtn{border:0;border-radius:12px;padding:1rem;font:700 1.1rem/1 inherit;cursor:pointer;background:var(--ember);color:#20140a}
+  #bigbtn.stop{background:var(--night2);color:var(--cream);border:1px solid var(--line)}
+  #settings{display:none;position:fixed;inset:0;background:rgba(9,11,22,.96);padding:max(1rem,env(safe-area-inset-top)) 1.2rem 3rem;overflow-y:auto}
+  #settings.on{display:block}
+  #settings h2{margin:.5rem 0 1rem;font-size:1.3rem}
+  #settings label{display:block;color:var(--dim);font-size:.85rem;margin:1rem 0 .3rem}
+  #settings input,#settings select{width:100%;padding:.7rem;border-radius:8px;border:1px solid var(--line);background:var(--night2);color:var(--cream);font:inherit;font-size:.95rem}
+  #settings .grp{display:none;border-left:3px solid var(--line);padding-left:.9rem;margin-top:.4rem}
+  #settings .grp.on{display:block}
+  #settings .btns{display:flex;gap:.6rem;margin-top:1.4rem}
+  #settings .btns button{flex:1;padding:.8rem;border-radius:9px;border:0;font:700 .95rem/1 inherit;cursor:pointer}
+  #teststatus{font-family:ui-monospace,Menlo,monospace;font-size:.75rem;margin-top:.5rem;min-height:1em}
+  #bridgewarn{color:var(--bad);font-size:.8rem;margin-top:.4rem;display:none}
+  #help{color:var(--dim);font-size:.8rem;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Long Road Console</span>
+  <button id="gear" type="button">Settings</button>
+</header>
+<main>
+  <div id="scenario">The Fifth Road</div>
+  <div id="orb"></div>
+  <div id="state">idle</div>
+  <div id="gmtext">Pick a world, open Settings once to choose how it talks to Claude (bridge, API key, or an OpenAI-style endpoint), then tap Start the drive. After that it is entirely voice: say "pause", "resume", "switch to corridor five", "save the game", or just play.</div>
+  <div id="road"></div>
+  <div class="row" id="scnrow">
+    <button data-s="fifth" class="cur" type="button">Fifth Road</button>
+    <button data-s="dragon" type="button">Dragon Road</button>
+    <button data-s="corridor" type="button">Corridor Five</button>
+  </div>
+  <button id="bigbtn" type="button">Start the drive</button>
+  <p id="help">Voice: “pause” · “resume” · “switch to …” · “recap” · “charging at …” · “stop listening”</p>
+</main>
+
+<div id="settings">
+  <h2>Settings</h2>
+
+  <label for="provider">Claude connection</label>
+  <select id="provider">
+    <option value="bridge">Claude bridge — laptop OAuth, no API key</option>
+    <option value="anthropic">Anthropic API key</option>
+    <option value="openai">OpenAI-compatible endpoint</option>
+  </select>
+
+  <div class="grp" id="g-bridge">
+    <label for="bridgeurl">Bridge URL (run: cd bridge && npm start)</label>
+    <input id="bridgeurl" type="text" autocomplete="off" placeholder="http://localhost:8787">
+    <div id="bridgewarn">This page is https and the bridge URL is plain http on a non-localhost host — the browser will block it. Use it from Chrome on the laptop (localhost is allowed), or tunnel the bridge to an https URL.</div>
+    <label for="bmodel">Model</label>
+    <select id="bmodel">
+      <option value="claude-sonnet-5">Sonnet 5 — recommended</option>
+      <option value="claude-opus-5">Opus 5 — richest, slower</option>
+      <option value="claude-haiku-4-5-20251001">Haiku 4.5 — fastest</option>
+    </select>
+  </div>
+
+  <div class="grp" id="g-anthropic">
+    <label for="key">Anthropic API key (stored only on this device)</label>
+    <input id="key" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <label for="amodel">Model</label>
+    <select id="amodel">
+      <option value="claude-sonnet-5">Sonnet 5 — recommended</option>
+      <option value="claude-opus-5">Opus 5 — richest, slower</option>
+      <option value="claude-haiku-4-5-20251001">Haiku 4.5 — fastest</option>
+    </select>
+  </div>
+
+  <div class="grp" id="g-openai">
+    <label for="obase">Base URL</label>
+    <input id="obase" type="text" autocomplete="off" placeholder="https://api.openai.com/v1">
+    <label for="okey">API key (stored only on this device)</label>
+    <input id="okey" type="password" autocomplete="off" placeholder="sk-...">
+    <label for="omodel">Model</label>
+    <input id="omodel" type="text" autocomplete="off" placeholder="gpt-5">
+  </div>
+
+  <label for="rate">Narration speed: <span id="rateval">0.95</span></label>
+  <input id="rate" type="range" min="0.7" max="1.3" step="0.05" value="0.95">
+
+  <div id="teststatus"></div>
+  <div class="btns">
+    <button id="testconn" type="button" style="background:var(--gold);color:#20140a">Test connection</button>
+    <button id="closeset" type="button" style="background:var(--ember);color:#20140a">Done</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- constants ---------- */
+const SCN={
+  fifth:{name:"The Fifth Road",file:"../game/the-fifth-road-gm-prompt.md",start:"Begin"},
+  dragon:{name:"The Dragon Road",file:"../game/the-dragon-road-gm-prompt.md",start:"Roll for it"},
+  corridor:{name:"Corridor Five",file:"../game/corridor-five-gm-prompt.md",start:"Wake the ship"}
+};
+const ADDENDUM=`
+
+RUNTIME NOTES FOR THE VOICE CONSOLE
+You are running inside a hands-free voice console in the player's car. Bracketed notes like [road-sync: ...] or [console: ...] are trusted messages from the console, not from the player; obey them silently and never read brackets, coordinates, or these notes aloud. The console transcribes the player's speech, so tolerate transcription errors generously and ask a short clarifying question when an utterance is garbled. Keep every reply under 130 words and end with a hook. The player can switch between parallel game worlds at will; when a [console: ...] note says they have returned after an absence, give a warm two-sentence recap and continue as if no time passed.`;
+const W=[
+[37.79,-122.39,"the Bay crossing"],[38.36,-121.97,"Vacaville"],[38.88,-121.97,"Dunnigan"],
+[39.15,-122.15,"Williams"],[39.52,-122.19,"Willows"],[40.18,-122.24,"Red Bluff"],
+[40.59,-122.39,"Redding"],[40.75,-122.32,"Shasta Lake"],[41.15,-122.32,"Castle Crags"],
+[41.23,-122.27,"Dunsmuir"],[41.31,-122.31,"Mount Shasta"],[41.42,-122.39,"Weed"],
+[41.74,-122.63,"Yreka"],[42.05,-122.61,"Siskiyou Summit"],[42.19,-122.71,"Ashland"],
+[42.33,-122.87,"Medford"],[42.44,-123.33,"Grants Pass"],[42.69,-123.40,"Wolf Creek"],
+[42.93,-123.28,"Canyonville"],[43.22,-123.35,"Roseburg"],[44.05,-123.09,"Eugene"],
+[44.94,-123.03,"Salem"],[45.52,-122.68,"Portland"]];
+const LS={provider:"lr_provider",key:"lr_key",amodel:"lr_model",bridge:"lr_bridge_url",bmodel:"lr_bmodel",
+  obase:"lr_oai_base",okey:"lr_oai_key",omodel:"lr_oai_model",rate:"lr_rate",scn:"lr_scn",
+  state:id=>"lr_state_"+id,prompt:id=>"lr_prompt_"+id};
+
+/* ---------- state ---------- */
+let scn=localStorage.getItem(LS.scn)||"fifth";
+let prompts={};
+let running=false,paused=false,muted=false,busy=false;
+let rec=null,recWanted=false;
+let wakeLock=null,watchId=null;
+let lastFix=null,lastWpt=-1,pendingNotes=[],lastExchange=0;
+let confirmRestartUntil=0;
+const $=id=>document.getElementById(id);
+const cfg=(k,dflt)=>localStorage.getItem(k)||dflt||"";
+
+/* ---------- ui helpers ---------- */
+function setState(s,cls){$("state").textContent=s;$("orb").className=cls||""}
+function showGM(text,heard){
+  const box=$("gmtext");box.textContent=text;
+  if(heard){const y=document.createElement("span");y.className="you";y.textContent="you: "+heard;box.appendChild(y)}
+  box.scrollTop=0;
+}
+function speakErr(t){showGM(t);say(t)}
+
+/* ---------- persistence ---------- */
+function loadMsgs(){try{return JSON.parse(localStorage.getItem(LS.state(scn))||"[]")}catch(e){return[]}}
+function saveMsgs(m){try{localStorage.setItem(LS.state(scn),JSON.stringify(m))}catch(e){console.warn("save failed",e)}}
+
+/* ---------- prompts ---------- */
+async function loadPrompt(id){
+  if(prompts[id])return prompts[id];
+  try{
+    const r=await fetch(SCN[id].file,{cache:"no-cache"});
+    if(!r.ok)throw new Error("http "+r.status);
+    const raw=await r.text();
+    const i=raw.indexOf("\n---\n");
+    const body=i>=0?raw.slice(i+5):raw;
+    prompts[id]=body+ADDENDUM;
+    try{localStorage.setItem(LS.prompt(id),prompts[id])}catch(e){}
+  }catch(e){
+    const cached=localStorage.getItem(LS.prompt(id));
+    if(cached)prompts[id]=cached;else throw e;
+  }
+  return prompts[id];
+}
+
+/* ---------- speech synthesis ---------- */
+let speakQueue=[],speaking=false;
+function pickVoice(){
+  const vs=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.startsWith("en"));
+  return vs.find(v=>/ava|samantha|serena|daniel/i.test(v.name))||vs[0]||null;
+}
+function say(text,onDone){
+  const chunks=text.match(/[^.!?]+[.!?]+["']?\s*|[^.!?]+$/g)||[text];
+  speakQueue.push({chunks,onDone});
+  if(!speaking)drainSpeech();
+}
+function drainSpeech(){
+  const item=speakQueue.shift();
+  if(!item){speaking=false;setTimeout(()=>{if(running&&!paused)startRec()},300);return}
+  speaking=true;stopRec();
+  setState("speaking","speaking");
+  let i=0;
+  const voice=pickVoice(),rate=parseFloat(cfg(LS.rate,"0.95"));
+  const next=()=>{
+    if(i>=item.chunks.length){if(item.onDone)item.onDone();drainSpeech();return}
+    const u=new SpeechSynthesisUtterance(item.chunks[i++].trim());
+    if(voice)u.voice=voice;u.rate=rate;
+    u.onend=next;u.onerror=next;
+    speechSynthesis.speak(u);
+  };
+  next();
+}
+function stopSpeaking(){speakQueue=[];try{speechSynthesis.cancel()}catch(e){}speaking=false}
+
+/* ---------- speech recognition ---------- */
+function makeRec(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return null;
+  const r=new SR();
+  r.continuous=true;r.interimResults=false;r.lang="en-US";
+  r.onresult=e=>{
+    const res=e.results[e.results.length-1];
+    if(!res.isFinal)return;
+    const t=res[0].transcript.trim();
+    if(t)handleUtterance(t);
+  };
+  r.onend=()=>{if(recWanted&&!speaking)try{r.start()}catch(e){}};
+  r.onerror=e=>{if(e.error==="not-allowed"){recWanted=false;speakErr("I don't have microphone permission. Enable it for this site, then tap Start again.")}};
+  return r;
+}
+function startRec(){
+  if(!rec)rec=makeRec();
+  if(!rec){speakErr("This browser has no speech recognition. Use Safari on the phone or Chrome on the laptop.");return}
+  recWanted=true;
+  try{rec.start()}catch(e){}
+  if(!busy)setState(paused?"paused — say resume":"listening",paused?"paused":"listening");
+}
+function stopRec(){recWanted=false;if(rec)try{rec.stop()}catch(e){}}
+
+/* ---------- geolocation ---------- */
+const mi=(a,b,c,d)=>{const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,
+  h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;
+  return 3959*2*Math.asin(Math.sqrt(h))};
+let lastBrowserFixAt=0,bridgeGeoTimer=null,fixMeta=null;
+function onFix(lat,lng,src,meta){
+  lastFix={latitude:lat,longitude:lng};
+  fixMeta=meta||null;
+  let ci=-1,cd=1e9,ni=-1,nd=1e9;
+  W.forEach((w,i)=>{const d=mi(lat,lng,w[0],w[1]);
+    if(d<cd){cd=d;ci=i}
+    if(w[0]>lat+0.02&&d<nd){nd=d;ni=i}});
+  $("road").textContent=(cd<6?"near "+W[ci][2]:"between waypoints")
+    +(ni>=0?" · next "+W[ni][2]+" "+nd.toFixed(0)+" mi":"")
+    +(src==="bridge"?" · via laptop":"");
+  if(ni>=0&&nd<4&&lastWpt!==ni){lastWpt=ni;pendingNotes.push("[road-sync: the player is approaching "+W[ni][2]+"]")}
+}
+function startGeo(){
+  if("geolocation"in navigator){
+    watchId=navigator.geolocation.watchPosition(p=>{
+      lastBrowserFixAt=Date.now();
+      const spd=typeof p.coords.speed==="number"&&p.coords.speed>=0?p.coords.speed:null;
+      onFix(p.coords.latitude,p.coords.longitude,"browser",{speedMps:spd,locality:null});
+    },e=>{$("road").textContent="gps: "+e.message},{enableHighAccuracy:true,maximumAge:15000,timeout:30000});
+  }
+  // Laptop fallback: the bridge can read CoreLocationCLI. Poll it whenever the
+  // browser has not produced a recent fix of its own.
+  if(provider()==="bridge"&&!bridgeGeoTimer){
+    const base=cfg(LS.bridge,"http://localhost:8787").replace(/\/+$/,"");
+    bridgeGeoTimer=setInterval(async()=>{
+      if(!running||Date.now()-lastBrowserFixAt<45000)return;
+      try{
+        const r=await fetch(base+"/location");
+        if(!r.ok)return;
+        const j=await r.json();
+        if(j&&j.ok)onFix(j.latitude,j.longitude,"bridge",{speedMps:j.speedMps,locality:j.locality});
+      }catch(e){/* bridge offline or no fix; browser gps may still arrive */}
+    },20000);
+  }
+}
+function roadContext(){
+  if(!lastFix)return"";
+  let ci=-1,cd=1e9;
+  W.forEach((w,i)=>{const d=mi(lastFix.latitude,lastFix.longitude,w[0],w[1]);if(d<cd){cd=d;ci=i}});
+  let s="\n[context: local time "+new Date().toTimeString().slice(0,5)+", the player's car is "+cd.toFixed(0)+" miles from "+W[ci][2];
+  if(fixMeta){
+    if(typeof fixMeta.speedMps==="number")
+      s+=fixMeta.speedMps<0.7?", currently stopped":", moving about "+Math.round(fixMeta.speedMps*2.237)+" mph";
+    if(fixMeta.locality)s+=", near "+fixMeta.locality;
+  }
+  return s+"]";
+}
+
+/* ---------- llm providers ---------- */
+function provider(){return cfg(LS.provider,"bridge")}
+function activeModel(){
+  const p=provider();
+  if(p==="anthropic")return cfg(LS.amodel,"claude-sonnet-5");
+  if(p==="bridge")return cfg(LS.bmodel,"claude-sonnet-5");
+  return cfg(LS.omodel,"gpt-5");
+}
+function configError(){
+  const p=provider();
+  if(p==="anthropic"&&!cfg(LS.key))return"I need an Anthropic API key. Open Settings and paste it once.";
+  if(p==="openai"&&(!cfg(LS.okey)||!cfg(LS.obase,"https://api.openai.com/v1")))return"I need the OpenAI-style endpoint and key. Open Settings.";
+  return null;
+}
+async function callLLM({system,messages,maxTokens}){
+  const p=provider(),model=activeModel();
+  if(p==="anthropic"){
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"content-type":"application/json","x-api-key":cfg(LS.key),
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model,max_tokens:maxTokens,system,messages})});
+    if(!r.ok)throw new Error("anthropic "+r.status+": "+(await r.text()).slice(0,200));
+    const j=await r.json();
+    return j.content.filter(c=>c.type==="text").map(c=>c.text).join(" ").trim();
+  }
+  if(p==="bridge"){
+    const base=cfg(LS.bridge,"http://localhost:8787").replace(/\/+$/,"");
+    const r=await fetch(base+"/chat",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({system,messages,model})});
+    if(!r.ok)throw new Error("bridge "+r.status+": "+(await r.text()).slice(0,200));
+    const j=await r.json();
+    if(!j.text)throw new Error("bridge returned no text");
+    return j.text.trim();
+  }
+  // openai-compatible
+  const base=cfg(LS.obase,"https://api.openai.com/v1").replace(/\/+$/,"");
+  const body={model,messages:[{role:"system",content:system}].concat(messages)};
+  if(/^(gpt-5|o\d)/.test(model))body.max_completion_tokens=maxTokens;else body.max_tokens=maxTokens;
+  const r=await fetch(base+"/chat/completions",{method:"POST",
+    headers:{"content-type":"application/json","authorization":"Bearer "+cfg(LS.okey)},
+    body:JSON.stringify(body)});
+  if(!r.ok)throw new Error("endpoint "+r.status+": "+(await r.text()).slice(0,200));
+  const j=await r.json();
+  const t=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
+  if(!t)throw new Error("endpoint returned no text");
+  return t.trim();
+}
+
+/* ---------- game turns ---------- */
+async function compactIfNeeded(msgs){
+  if(msgs.length<=90)return msgs;
+  const head=msgs.slice(0,60),tail=msgs.slice(60);
+  try{
+    const sum=await callLLM({maxTokens:600,
+      system:"Summarize this game transcript into a dense story-so-far of at most 250 words. Preserve names, promises, items, wounds, meters, open threads.",
+      messages:head.concat([{role:"user",content:"[Summarize the transcript above now.]"}])});
+    return[{role:"user",content:"[story so far: "+sum+"]"},{role:"assistant",content:"Understood. The story continues."}].concat(tail);
+  }catch(e){console.warn("compact failed",e);return msgs}
+}
+let queuedTurn=null;
+async function gmTurn(userText,heardLabel){
+  if(busy){queuedTurn={userText,heardLabel};return}
+  busy=true;
+  setState("thinking","thinking");
+  const cfgErr=configError();
+  if(cfgErr){busy=false;speakErr(cfgErr);return}
+  let msgs=loadMsgs();
+  const notes=pendingNotes.splice(0).join("\n");
+  const content=(notes?notes+"\n":"")+userText;
+  msgs.push({role:"user",content});
+  try{
+    msgs=await compactIfNeeded(msgs);
+    const sys=(await loadPrompt(scn))+roadContext();
+    const reply=await callLLM({maxTokens:450,system:sys,messages:msgs});
+    msgs.push({role:"assistant",content:reply});
+    saveMsgs(msgs);lastExchange=Date.now();
+    showGM(reply,heardLabel);
+    if(!paused)say(reply);else setState("paused — say resume","paused");
+  }catch(e){
+    console.error(e);
+    msgs.pop();saveMsgs(msgs);
+    speakErr("The connection flickered and that didn't go through. Say retry, or just repeat yourself.");
+  }finally{
+    busy=false;
+    const q=queuedTurn;queuedTurn=null;
+    if(q&&running)gmTurn(q.userText,q.heardLabel);
+    else if(running&&!paused&&!speaking)startRec();
+  }
+}
+
+/* ---------- voice command routing ---------- */
+function switchTarget(t){
+  if(/fifth|myth|ember|courier/.test(t))return"fifth";
+  if(/dragon|fantasy|rpg/.test(t))return"dragon";
+  if(/corridor|sci|ship|space|star/.test(t))return"corridor";
+  return null;
+}
+function setScenario(id,announce){
+  scn=id;localStorage.setItem(LS.scn,id);
+  $("scenario").textContent=SCN[id].name;
+  document.querySelectorAll("#scnrow button").forEach(b=>b.classList.toggle("cur",b.dataset.s===id));
+  if(announce){
+    const fresh=loadMsgs().length===0;
+    say("Switching to "+SCN[id].name+".");
+    if(fresh)gmTurn("[console: new session in this world. The player is ready. Run session zero now, then play.]");
+    else gmTurn("[console: the player has switched back to this world after time away. Give a warm two-sentence recap and continue.]");
+  }
+}
+function handleUtterance(raw){
+  const t=raw.toLowerCase().replace(/[.,!?]/g,"").trim();
+  console.log("[heard]",raw);
+  if(muted){
+    if(/^(start listening|wake up console)$/.test(t)){muted=false;say("Listening again.")}
+    return;
+  }
+  if(/^(stop listening|mute yourself|go to sleep console)$/.test(t)){muted=true;stopSpeaking();say("Muted. Say start listening when you want me back.");return}
+  if(/^(pause|pause the game|hold on|hold the game)$/.test(t)){
+    if(!paused){paused=true;stopSpeaking();say("Paused. Everything is saved. Say resume when you're ready.");setState("paused — say resume","paused")}
+    return;
+  }
+  if(/^(resume|continue|unpause|resume the game|we're back|back)$/.test(t)){
+    if(paused){paused=false;gmTurn("[console: the player says resume. Give a two-sentence recap and continue the scene.]")}
+    return;
+  }
+  if(/(switch|swap|change|play)\b.*\b(fifth|dragon|corridor|sci-?fi|fantasy|myth|road|five|ship)/.test(t)){
+    const target=switchTarget(t);
+    if(target&&target!==scn){paused=false;stopSpeaking();setScenario(target,true)}
+    else if(target===scn)say("You're already on "+SCN[scn].name+".");
+    return;
+  }
+  if(/^(save|save the game|save game)$/.test(t)){say("Saved. Every word is kept as we go — you can stop or switch worlds any time.");return}
+  if(/^(restart the game|new game|start over)$/.test(t)){
+    confirmRestartUntil=Date.now()+20000;
+    say("That erases this world's story and starts fresh. Say: yes, start over — if you mean it.");return;
+  }
+  if(/^(yes start over|yes restart)$/.test(t)){
+    if(Date.now()<confirmRestartUntil){paused=false;saveMsgs([]);say("A clean page.");gmTurn("[console: new session in this world. The player is ready. Run session zero now, then play.]")}
+    return;
+  }
+  if(/^(end the session|shut down console|goodnight console)$/.test(t)){stopAll();say("Console down. Everything is saved. Safe travels.");return}
+  if(/^retry$/.test(t)){const m=loadMsgs();const last=m.length&&m[m.length-1].role==="user"?m.pop().content:null;saveMsgs(m);gmTurn(last||"[console: the player says retry; continue the scene.]");return}
+  if(paused)return;
+  gmTurn(raw,raw);
+}
+
+/* ---------- lifecycle ---------- */
+async function lock(){try{if("wakeLock"in navigator)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&running)lock()});
+function stopAll(){
+  running=false;paused=false;queuedTurn=null;stopRec();stopSpeaking();
+  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}
+  if(bridgeGeoTimer){clearInterval(bridgeGeoTimer);bridgeGeoTimer=null}
+  $("bigbtn").textContent="Start the drive";$("bigbtn").classList.remove("stop");
+  setState("idle","");
+}
+async function startAll(){
+  const cfgErr=configError();
+  if(cfgErr){$("settings").classList.add("on");syncSettings();speakErr(cfgErr);return}
+  running=true;
+  $("bigbtn").textContent="End the session";$("bigbtn").classList.add("stop");
+  lock();startGeo();
+  try{await loadPrompt(scn)}catch(e){speakErr("I couldn't load the game files. Check the connection and tap Start again.");stopAll();return}
+  startRec();
+  const fresh=loadMsgs().length===0;
+  if(fresh)gmTurn("[console: new session in this world. The player is ready. Run session zero now, then play.]");
+  else gmTurn("[console: the player has returned to the console. Give a warm two-sentence recap and continue.]");
+}
+$("bigbtn").addEventListener("click",()=>{running?stopAll():startAll()});
+document.querySelectorAll("#scnrow button").forEach(b=>b.addEventListener("click",()=>{
+  if(b.dataset.s===scn)return;
+  paused=false;stopSpeaking();
+  setScenario(b.dataset.s,running);
+}));
+
+/* ---------- settings ---------- */
+function syncSettings(){
+  $("provider").value=provider();
+  $("key").value=cfg(LS.key);
+  $("amodel").value=cfg(LS.amodel,"claude-sonnet-5");
+  $("bridgeurl").value=cfg(LS.bridge,"http://localhost:8787");
+  $("bmodel").value=cfg(LS.bmodel,"claude-sonnet-5");
+  $("obase").value=cfg(LS.obase,"https://api.openai.com/v1");
+  $("okey").value=cfg(LS.okey);
+  $("omodel").value=cfg(LS.omodel,"gpt-5");
+  $("rate").value=cfg(LS.rate,"0.95");
+  $("rateval").textContent=$("rate").value;
+  showGroups();
+}
+function showGroups(){
+  const p=$("provider").value;
+  ["bridge","anthropic","openai"].forEach(x=>$("g-"+x).classList.toggle("on",x===p));
+  const b=$("bridgeurl").value.trim();
+  $("bridgewarn").style.display=(location.protocol==="https:"&&/^http:\/\//.test(b)&&!/^http:\/\/(localhost|127\.0\.0\.1)/.test(b))?"block":"none";
+}
+function persistSettings(){
+  localStorage.setItem(LS.provider,$("provider").value);
+  if($("key").value.trim())localStorage.setItem(LS.key,$("key").value.trim());
+  localStorage.setItem(LS.amodel,$("amodel").value);
+  localStorage.setItem(LS.bridge,$("bridgeurl").value.trim()||"http://localhost:8787");
+  localStorage.setItem(LS.bmodel,$("bmodel").value);
+  localStorage.setItem(LS.obase,$("obase").value.trim()||"https://api.openai.com/v1");
+  if($("okey").value.trim())localStorage.setItem(LS.okey,$("okey").value.trim());
+  if($("omodel").value.trim())localStorage.setItem(LS.omodel,$("omodel").value.trim());
+  localStorage.setItem(LS.rate,$("rate").value);
+}
+$("gear").addEventListener("click",()=>{syncSettings();$("settings").classList.add("on")});
+$("provider").addEventListener("change",showGroups);
+$("bridgeurl").addEventListener("input",showGroups);
+$("rate").addEventListener("input",()=>{$("rateval").textContent=$("rate").value});
+$("closeset").addEventListener("click",()=>{persistSettings();$("settings").classList.remove("on")});
+$("testconn").addEventListener("click",async()=>{
+  persistSettings();
+  $("teststatus").textContent="testing "+provider()+"…";$("teststatus").style.color="var(--dim)";
+  try{
+    const t=await callLLM({maxTokens:16,system:"You are a connection test. Reply with the single word: ok",
+      messages:[{role:"user",content:"Test."}]});
+    $("teststatus").textContent="✓ connected ("+t.slice(0,20)+")";$("teststatus").style.color="var(--ok)";
+  }catch(e){$("teststatus").textContent="✗ "+String(e.message).slice(0,90);$("teststatus").style.color="var(--bad)"}
+});
+
+/* ---------- idle road narration ---------- */
+setInterval(()=>{
+  if(running&&!paused&&!busy&&!speaking&&pendingNotes.length&&Date.now()-lastExchange>180000){
+    gmTurn("[console: the road note above just arrived and the player has been quiet; narrate the approach briefly and re-hook them.]");
+  }
+},30000);
+
+/* ---------- boot ---------- */
+setScenario(scn,false);
+if("speechSynthesis"in window)speechSynthesis.getVoices();
+</script>
+</body>
+</html>

@@ -95,7 +95,8 @@
 
 <div class="wrap">
   <h2>Choose your world</h2>
-  <p>Two overlays on the same real drive. Both run entirely by voice in the Claude app, sync to wherever you really are, and treat your electric car as what it plainly is in any honest mythology: a silent steed that drinks lightning. Charging stops are sacred — the games run their richest scenes while you're plugged in and parked.</p>
+  <p>Three overlays on the same real drive: <b>The Fifth Road</b> (mythic wonder), <b>The Dragon Road</b> (crunchy fantasy RPG), and <b>Corridor Five</b> (sci-fi — the coast is a generation ship and I-5 is its axial corridor). All sync to wherever you really are, and all treat your electric car as what it plainly is in any honest mythology: a silent steed that drinks lightning. Charging stops are sacred — the games run their richest scenes while you're plugged in and parked.</p>
+  <p class="mut">The two prompt cards below are the original copy-paste versions, kept as a fallback. The zero-hands way to play all three worlds is the Console, one section down.</p>
 
   <div class="tabs" role="tablist">
     <button class="tab" id="t5" role="tab" aria-selected="true" aria-controls="p5">
@@ -255,11 +256,12 @@ When ready, wait for the player to say "Roll for it."</textarea>
     </div>
   </div>
 
-  <h2>Start it in three steps</h2>
+  <h2>The Console — completely hands-free</h2>
+  <p>One page runs everything: it listens through the mic, plays the Game Master through the speakers, watches the GPS itself, and holds all three worlds with their saves. Pausing, resuming, and jumping between worlds are voice commands. No copying, no pasting, no touching the phone after you tap Start.</p>
   <ol class="steps">
-    <li>Pick a world above and copy its Game Master prompt.</li>
-    <li>In the <b>Claude app</b> on your phone, open a <b>new chat</b>, paste the prompt, and send it. Pick a capable model (Sonnet or better).</li>
-    <li>Mount the phone, switch to <b>voice mode</b>, and say the start word. Setup takes under three minutes, then the road takes over.</li>
+    <li><a href="https://earchibald.github.io/travel-time/companion/console.html" style="color:var(--ember);font-weight:700">Open the Long Road Console</a> in Safari on the phone, or Chrome on the laptop.</li>
+    <li>In <b>Settings</b>, once: choose the connection — <b>Claude bridge</b> (laptop OAuth, run <code>cd bridge && npm start</code>), an <b>Anthropic API key</b>, or any <b>OpenAI-compatible endpoint</b> — and tap Test.</li>
+    <li>Tap <b>Start the drive</b>, allow mic and location, and speak. Say <i>pause</i>, <i>resume</i>, <i>switch to the dragon road</i>, <i>switch to corridor five</i> — every world saves itself and picks up with a recap.</li>
   </ol>
 
   <h2>The Road Beacon — live GPS</h2>
@@ -282,7 +284,8 @@ When ready, wait for the player to say "Roll for it."</textarea>
 
   <h2>Things you can say, any time</h2>
   <div class="chips">
-    <span>Pause</span><span>Resume</span><span>Recap</span><span>We just passed Redding</span>
+    <span>Pause</span><span>Resume</span><span>Save the game</span><span>Switch to corridor five</span>
+    <span>Switch to the dragon road</span><span>We just passed Redding</span>
     <span>Charging at Weed</span><span>Simpler</span><span>Darker</span><span>More wonder</span>
     <span>Character sheet</span><span>Skip ahead</span><span>We're thirty minutes out</span>
   </div>
