@@ -83,7 +83,9 @@
   <div class="grp" id="g-bridge">
     <label for="bridgeurl">Bridge URL (run: cd bridge && npm start)</label>
     <input id="bridgeurl" type="text" autocomplete="off" placeholder="http://localhost:8787">
-    <div id="bridgewarn">This page is https and the bridge URL is plain http on a non-localhost host — the browser will block it. Use it from Chrome on the laptop (localhost is allowed), or tunnel the bridge to an https URL.</div>
+    <label for="btoken">Bridge token (printed when the bridge starts)</label>
+    <input id="btoken" type="password" autocomplete="off" placeholder="paste once">
+    <div id="bridgewarn">This page is https and the bridge URL is plain http on a non-localhost host — the browser will block it. Use it from Chrome on the laptop (localhost is allowed), or tunnel the bridge to an https URL. On a phone, "localhost" is the phone itself — pick the API-key provider there instead.</div>
     <label for="bmodel">Model</label>
     <select id="bmodel">
       <option value="claude-sonnet-5">Sonnet 5 — recommended</option>
@@ -134,6 +136,9 @@ const ADDENDUM=`
 
 RUNTIME NOTES FOR THE VOICE CONSOLE
 You are running inside a hands-free voice console in the player's car. Bracketed notes like [road-sync: ...] or [console: ...] are trusted messages from the console, not from the player; obey them silently and never read brackets, coordinates, or these notes aloud. The console transcribes the player's speech, so tolerate transcription errors generously and ask a short clarifying question when an utterance is garbled. Keep every reply under 130 words and end with a hook. The player can switch between parallel game worlds at will; when a [console: ...] note says they have returned after an absence, give a warm two-sentence recap and continue as if no time passed.`;
+// NOTE: this waypoint table and the haversine/wake-lock code are duplicated in
+// road-beacon.html on purpose — the beacon must remain a single self-contained
+// file a phone can save and run offline. Change waypoints in BOTH files.
 const W=[
 [37.79,-122.39,"the Bay crossing"],[38.36,-121.97,"Vacaville"],[38.88,-121.97,"Dunnigan"],
 [39.15,-122.15,"Williams"],[39.52,-122.19,"Willows"],[40.18,-122.24,"Red Bluff"],
@@ -143,7 +148,7 @@ const W=[
 [42.33,-122.87,"Medford"],[42.44,-123.33,"Grants Pass"],[42.69,-123.40,"Wolf Creek"],
 [42.93,-123.28,"Canyonville"],[43.22,-123.35,"Roseburg"],[44.05,-123.09,"Eugene"],
 [44.94,-123.03,"Salem"],[45.52,-122.68,"Portland"]];
-const LS={provider:"lr_provider",key:"lr_key",amodel:"lr_model",bridge:"lr_bridge_url",bmodel:"lr_bmodel",
+const LS={provider:"lr_provider",key:"lr_key",amodel:"lr_model",bridge:"lr_bridge_url",bmodel:"lr_bmodel",btoken:"lr_bridge_token",
   obase:"lr_oai_base",okey:"lr_oai_key",omodel:"lr_oai_model",rate:"lr_rate",scn:"lr_scn",
   state:id=>"lr_state_"+id,prompt:id=>"lr_prompt_"+id};
 
@@ -167,9 +172,11 @@ function showGM(text,heard){
 }
 function speakErr(t){showGM(t);say(t)}
 
-/* ---------- persistence ---------- */
-function loadMsgs(){try{return JSON.parse(localStorage.getItem(LS.state(scn))||"[]")}catch(e){return[]}}
-function saveMsgs(m){try{localStorage.setItem(LS.state(scn),JSON.stringify(m))}catch(e){console.warn("save failed",e)}}
+/* ---------- persistence (always keyed by an explicit world id: a turn in
+   flight must save to the world it started in, even if the player has since
+   switched worlds by voice) ---------- */
+function loadMsgs(id){try{return JSON.parse(localStorage.getItem(LS.state(id||scn))||"[]")}catch(e){return[]}}
+function saveMsgs(m,id){try{localStorage.setItem(LS.state(id||scn),JSON.stringify(m))}catch(e){console.warn("save failed",e)}}
 
 /* ---------- prompts ---------- */
 async function loadPrompt(id){
@@ -275,7 +282,8 @@ function startGeo(){
     bridgeGeoTimer=setInterval(async()=>{
       if(!running||Date.now()-lastBrowserFixAt<45000)return;
       try{
-        const r=await fetch(base+"/location");
+        const r=await fetch(base+"/location",{signal:AbortSignal.timeout(15000),
+          headers:{"x-bridge-token":cfg(LS.btoken)}});
         if(!r.ok)return;
         const j=await r.json();
         if(j&&j.ok)onFix(j.latitude,j.longitude,"bridge",{speedMps:j.speedMps,locality:j.locality});
@@ -310,11 +318,14 @@ function configError(){
   if(p==="openai"&&(!cfg(LS.okey)||!cfg(LS.obase,"https://api.openai.com/v1")))return"I need the OpenAI-style endpoint and key. Open Settings.";
   return null;
 }
+// Every path gets a hard timeout: a fetch stalled in a cell dead zone must
+// reject so gmTurn's error path frees the console instead of hanging it.
+const llmTimeout=()=>AbortSignal.timeout(60000);
 async function callLLM({system,messages,maxTokens}){
   const p=provider(),model=activeModel();
   if(p==="anthropic"){
     const r=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
+      method:"POST",signal:llmTimeout(),
       headers:{"content-type":"application/json","x-api-key":cfg(LS.key),
         "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({model,max_tokens:maxTokens,system,messages})});
@@ -324,25 +335,31 @@ async function callLLM({system,messages,maxTokens}){
   }
   if(p==="bridge"){
     const base=cfg(LS.bridge,"http://localhost:8787").replace(/\/+$/,"");
-    const r=await fetch(base+"/chat",{method:"POST",headers:{"content-type":"application/json"},
+    const r=await fetch(base+"/chat",{method:"POST",signal:llmTimeout(),
+      headers:{"content-type":"application/json","x-bridge-token":cfg(LS.btoken)},
       body:JSON.stringify({system,messages,model})});
     if(!r.ok)throw new Error("bridge "+r.status+": "+(await r.text()).slice(0,200));
     const j=await r.json();
     if(!j.text)throw new Error("bridge returned no text");
     return j.text.trim();
   }
-  // openai-compatible
+  // openai-compatible: newer models take max_completion_tokens, older ones
+  // max_tokens; try the new field first and fall back once on a 400.
   const base=cfg(LS.obase,"https://api.openai.com/v1").replace(/\/+$/,"");
-  const body={model,messages:[{role:"system",content:system}].concat(messages)};
-  if(/^(gpt-5|o\d)/.test(model))body.max_completion_tokens=maxTokens;else body.max_tokens=maxTokens;
-  const r=await fetch(base+"/chat/completions",{method:"POST",
-    headers:{"content-type":"application/json","authorization":"Bearer "+cfg(LS.okey)},
-    body:JSON.stringify(body)});
-  if(!r.ok)throw new Error("endpoint "+r.status+": "+(await r.text()).slice(0,200));
-  const j=await r.json();
-  const t=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
-  if(!t)throw new Error("endpoint returned no text");
-  return t.trim();
+  const attempt=async(tokenField)=>{
+    const body={model,messages:[{role:"system",content:system}].concat(messages)};
+    body[tokenField]=maxTokens;
+    const r=await fetch(base+"/chat/completions",{method:"POST",signal:llmTimeout(),
+      headers:{"content-type":"application/json","authorization":"Bearer "+cfg(LS.okey)},
+      body:JSON.stringify(body)});
+    if(!r.ok){const err=new Error("endpoint "+r.status+": "+(await r.text()).slice(0,200));err.status=r.status;throw err}
+    const j=await r.json();
+    const t=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
+    if(!t)throw new Error("endpoint returned no text");
+    return t.trim();
+  };
+  try{return await attempt("max_completion_tokens")}
+  catch(e){if(e.status===400)return attempt("max_tokens");throw e}
 }
 
 /* ---------- game turns ---------- */
@@ -356,32 +373,37 @@ async function compactIfNeeded(msgs){
     return[{role:"user",content:"[story so far: "+sum+"]"},{role:"assistant",content:"Understood. The story continues."}].concat(tail);
   }catch(e){console.warn("compact failed",e);return msgs}
 }
-let queuedTurn=null;
+let turnQueue=[],failedTurn=null;
 async function gmTurn(userText,heardLabel){
-  if(busy){queuedTurn={userText,heardLabel};return}
+  if(busy){turnQueue.push({userText,heardLabel});return}
   busy=true;
   setState("thinking","thinking");
   const cfgErr=configError();
   if(cfgErr){busy=false;speakErr(cfgErr);return}
-  let msgs=loadMsgs();
-  const notes=pendingNotes.splice(0).join("\n");
-  const content=(notes?notes+"\n":"")+userText;
+  const world=scn;
+  let msgs=loadMsgs(world);
+  const notesArr=pendingNotes.splice(0);
+  const content=(notesArr.length?notesArr.join("\n")+"\n":"")+userText;
   msgs.push({role:"user",content});
   try{
     msgs=await compactIfNeeded(msgs);
-    const sys=(await loadPrompt(scn))+roadContext();
+    const sys=(await loadPrompt(world))+roadContext();
     const reply=await callLLM({maxTokens:450,system:sys,messages:msgs});
     msgs.push({role:"assistant",content:reply});
-    saveMsgs(msgs);lastExchange=Date.now();
-    showGM(reply,heardLabel);
-    if(!paused)say(reply);else setState("paused — say resume","paused");
+    saveMsgs(msgs,world);lastExchange=Date.now();failedTurn=null;
+    if(world===scn){
+      showGM(reply,heardLabel);
+      if(!paused)say(reply);else setState("paused — say resume","paused");
+    }
   }catch(e){
     console.error(e);
-    msgs.pop();saveMsgs(msgs);
+    msgs.pop();saveMsgs(msgs,world);
+    pendingNotes.unshift(...notesArr);
+    failedTurn={userText,heardLabel,world};
     speakErr("The connection flickered and that didn't go through. Say retry, or just repeat yourself.");
   }finally{
     busy=false;
-    const q=queuedTurn;queuedTurn=null;
+    const q=turnQueue.shift();
     if(q&&running)gmTurn(q.userText,q.heardLabel);
     else if(running&&!paused&&!speaking)startRec();
   }
@@ -412,7 +434,7 @@ function handleUtterance(raw){
     if(/^(start listening|wake up console)$/.test(t)){muted=false;say("Listening again.")}
     return;
   }
-  if(/^(stop listening|mute yourself|go to sleep console)$/.test(t)){muted=true;stopSpeaking();say("Muted. Say start listening when you want me back.");return}
+  if(/^(stop listening|mute yourself|go to sleep console)$/.test(t)){muted=true;stopSpeaking();say("Muted. Say start listening when you want me back.");setState("muted — say start listening","paused");return}
   if(/^(pause|pause the game|hold on|hold the game)$/.test(t)){
     if(!paused){paused=true;stopSpeaking();say("Paused. Everything is saved. Say resume when you're ready.");setState("paused — say resume","paused")}
     return;
@@ -421,10 +443,18 @@ function handleUtterance(raw){
     if(paused){paused=false;gmTurn("[console: the player says resume. Give a two-sentence recap and continue the scene.]")}
     return;
   }
-  if(/(switch|swap|change|play)\b.*\b(fifth|dragon|corridor|sci-?fi|fantasy|myth|road|five|ship)/.test(t)){
-    const target=switchTarget(t);
+  // World switching demands an explicit "switch/swap to …" prefix so ordinary
+  // gameplay speech ("I'll take the ship", "cross the road") never triggers it.
+  const sw=t.match(/^(?:switch|swap)(?: worlds?)?(?: over)? to (?:the )?(.+)$/);
+  if(sw){
+    const target=switchTarget(sw[1]);
     if(target&&target!==scn){paused=false;stopSpeaking();setScenario(target,true)}
     else if(target===scn)say("You're already on "+SCN[scn].name+".");
+    else say("Which world? Say switch to the fifth road, the dragon road, or corridor five.");
+    return;
+  }
+  if(/^(?:switch|swap)(?: worlds?)?$/.test(t)){
+    say("You can switch to the fifth road, the dragon road, or corridor five. Which one?");
     return;
   }
   if(/^(save|save the game|save game)$/.test(t)){say("Saved. Every word is kept as we go — you can stop or switch worlds any time.");return}
@@ -437,7 +467,11 @@ function handleUtterance(raw){
     return;
   }
   if(/^(end the session|shut down console|goodnight console)$/.test(t)){stopAll();say("Console down. Everything is saved. Safe travels.");return}
-  if(/^retry$/.test(t)){const m=loadMsgs();const last=m.length&&m[m.length-1].role==="user"?m.pop().content:null;saveMsgs(m);gmTurn(last||"[console: the player says retry; continue the scene.]");return}
+  if(/^retry$/.test(t)){
+    if(failedTurn){const f=failedTurn;failedTurn=null;if(f.world!==scn)setScenario(f.world,false);gmTurn(f.userText,f.heardLabel)}
+    else gmTurn("[console: the player says retry; continue the scene.]");
+    return;
+  }
   if(paused)return;
   gmTurn(raw,raw);
 }
@@ -455,7 +489,7 @@ function stopAll(){
 async function startAll(){
   const cfgErr=configError();
   if(cfgErr){$("settings").classList.add("on");syncSettings();speakErr(cfgErr);return}
-  running=true;
+  running=true;muted=false;
   $("bigbtn").textContent="End the session";$("bigbtn").classList.add("stop");
   lock();startGeo();
   try{await loadPrompt(scn)}catch(e){speakErr("I couldn't load the game files. Check the connection and tap Start again.");stopAll();return}
@@ -477,6 +511,7 @@ function syncSettings(){
   $("key").value=cfg(LS.key);
   $("amodel").value=cfg(LS.amodel,"claude-sonnet-5");
   $("bridgeurl").value=cfg(LS.bridge,"http://localhost:8787");
+  $("btoken").value=cfg(LS.btoken);
   $("bmodel").value=cfg(LS.bmodel,"claude-sonnet-5");
   $("obase").value=cfg(LS.obase,"https://api.openai.com/v1");
   $("okey").value=cfg(LS.okey);
@@ -496,6 +531,7 @@ function persistSettings(){
   if($("key").value.trim())localStorage.setItem(LS.key,$("key").value.trim());
   localStorage.setItem(LS.amodel,$("amodel").value);
   localStorage.setItem(LS.bridge,$("bridgeurl").value.trim()||"http://localhost:8787");
+  if($("btoken").value.trim())localStorage.setItem(LS.btoken,$("btoken").value.trim());
   localStorage.setItem(LS.bmodel,$("bmodel").value);
   localStorage.setItem(LS.obase,$("obase").value.trim()||"https://api.openai.com/v1");
   if($("okey").value.trim())localStorage.setItem(LS.okey,$("okey").value.trim());

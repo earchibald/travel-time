@@ -260,7 +260,7 @@ When ready, wait for the player to say "Roll for it."</textarea>
   <p>One page runs everything: it listens through the mic, plays the Game Master through the speakers, watches the GPS itself, and holds all three worlds with their saves. Pausing, resuming, and jumping between worlds are voice commands. No copying, no pasting, no touching the phone after you tap Start.</p>
   <ol class="steps">
     <li><a href="https://earchibald.github.io/travel-time/companion/console.html" style="color:var(--ember);font-weight:700">Open the Long Road Console</a> in Safari on the phone, or Chrome on the laptop.</li>
-    <li>In <b>Settings</b>, once: choose the connection — <b>Claude bridge</b> (laptop OAuth, run <code>cd bridge && npm start</code>), an <b>Anthropic API key</b>, or any <b>OpenAI-compatible endpoint</b> — and tap Test.</li>
+    <li>In <b>Settings</b>, once: choose the connection and tap Test. On the <b>laptop</b>: Claude bridge (run <code>cd bridge && npm start</code>, paste the token it prints — uses your Claude login, no API key). On the <b>phone</b>: an Anthropic API key or any OpenAI-compatible endpoint (the bridge's localhost URL is not reachable from a phone).</li>
     <li>Tap <b>Start the drive</b>, allow mic and location, and speak. Say <i>pause</i>, <i>resume</i>, <i>switch to the dragon road</i>, <i>switch to corridor five</i> — every world saves itself and picks up with a recap.</li>
   </ol>
 

@@ -7,10 +7,33 @@
 // Then in the console settings choose "Claude bridge" (http://localhost:8787).
 import http from "node:http";
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 const PORT = Number(process.env.PORT || 8787);
+// 127.0.0.1 by default: this server fronts the user's Claude OAuth session and
+// physical location. Set BIND=0.0.0.0 only deliberately (e.g. behind a tunnel).
+const HOST = process.env.BIND || "127.0.0.1";
 const MAX_BODY = 2_000_000;
+
+// Shared secret: any browser page (or LAN host, if rebound) must present it.
+// Persisted next to the server so restarts keep the console's saved token valid.
+const TOKEN_FILE = join(dirname(fileURLToPath(import.meta.url)), ".token");
+let TOKEN;
+try {
+  TOKEN = readFileSync(TOKEN_FILE, "utf8").trim();
+} catch {
+  TOKEN = randomUUID();
+  writeFileSync(TOKEN_FILE, TOKEN + "\n", { mode: 0o600 });
+}
+function authorized(req) {
+  const url = new URL(req.url, "http://x");
+  const presented = req.headers["x-bridge-token"] || url.searchParams.get("token");
+  return presented === TOKEN;
+}
 
 // Location via the CoreLocationCLI tool (brew install corelocationcli), so a
 // laptop with no browser GPS can still feed road-sync. Cached for 20s.
@@ -54,7 +77,7 @@ function getLocation() {
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "content-type");
+  res.setHeader("Access-Control-Allow-Headers", "content-type, x-bridge-token");
 }
 
 function sendJSON(res, code, obj) {
@@ -70,7 +93,7 @@ function renderPrompt(messages) {
     (m.role === "assistant" ? "GAME MASTER: " : "PLAYER: ") + m.content
   );
   lines.push(
-    "PLAYER: [Reply now with the Game Master's next spoken turn only — no name prefix, no quotes.]"
+    "PLAYER: [Produce the assistant's next reply only, exactly as the system instructions direct — no name prefix, no quotes.]"
   );
   return lines.join("\n\n");
 }
@@ -111,13 +134,17 @@ const server = http.createServer((req, res) => {
     sendJSON(res, 200, { ok: true, auth: "claude-code-oauth" });
     return;
   }
-  if (req.method === "GET" && req.url === "/location") {
+  if (!authorized(req)) {
+    sendJSON(res, 401, { error: "missing or wrong bridge token (see server startup output)" });
+    return;
+  }
+  if (req.method === "GET" && req.url.startsWith("/location")) {
     getLocation()
       .then((loc) => sendJSON(res, 200, { ok: true, ...loc, at: lastLocAt }))
       .catch((e) => sendJSON(res, 503, { error: String(e.message).slice(0, 200) }));
     return;
   }
-  if (req.method === "POST" && req.url === "/chat") {
+  if (req.method === "POST" && req.url.startsWith("/chat")) {
     let body = "";
     req.on("data", (c) => {
       body += c;
@@ -149,7 +176,8 @@ const server = http.createServer((req, res) => {
   sendJSON(res, 404, { error: "not found" });
 });
 
-server.listen(PORT, () => {
-  console.log(`Long Road bridge listening on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Long Road bridge listening on http://${HOST}:${PORT}`);
   console.log("Auth: your existing Claude Code login (OAuth). No API key involved.");
+  console.log(`Bridge token (paste into console Settings once): ${TOKEN}`);
 });
