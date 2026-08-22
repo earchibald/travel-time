@@ -1,52 +1,45 @@
-<title>The Fifth Road</title>
+<title>The Long Road North</title>
 <style>
   :root{
-    --night:#131628;      /* indigo asphalt */
-    --night-2:#1b1f38;    /* raised card */
-    --line:#2e3355;       /* hairline */
-    --cream:#f2ead8;      /* headlight cream */
-    --dim:#a9a695;        /* dimmed cream */
-    --ember:#f28b2e;      /* the Ember */
-    --gold:#d9b64a;       /* valley gold */
+    --night:#131628;--night-2:#1b1f38;--line:#2e3355;
+    --cream:#f2ead8;--dim:#a9a695;--ember:#f28b2e;--gold:#d9b64a;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
-  body{
-    margin:0;background:var(--night);color:var(--cream);
+  body{margin:0;background:var(--night);color:var(--cream);
     font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-    font-size:17px;line-height:1.6;
-  }
+    font-size:17px;line-height:1.6}
   .wrap{max-width:42rem;margin:0 auto;padding:0 1.25rem 4rem}
-  /* ---- hero ---- */
   .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
   .hero svg{display:block;width:100%;height:auto}
   .hero-text{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;text-align:center;padding:1rem 1rem 8%}
   .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:.7rem;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);margin:0 0 .5rem}
-  h1{font-size:clamp(2.4rem,9vw,4rem);line-height:1.02;margin:0;font-weight:600;letter-spacing:.01em;text-wrap:balance;text-shadow:0 2px 24px rgba(0,0,0,.55)}
+  h1{font-size:clamp(2.2rem,8.5vw,3.8rem);line-height:1.02;margin:0;font-weight:600;text-wrap:balance;text-shadow:0 2px 24px rgba(0,0,0,.55)}
   .deck{color:var(--dim);max-width:34rem;margin:.9rem auto 0;font-style:italic}
-  /* ---- sections ---- */
   h2{font-size:1.5rem;margin:3rem 0 1rem;font-weight:600;text-wrap:balance}
   h2::before{content:"";display:block;width:2.2rem;height:3px;background:var(--ember);margin-bottom:.7rem;border-radius:2px}
   p{margin:.7rem 0}
   .mut{color:var(--dim)}
-  /* ---- steps ---- */
   ol.steps{list-style:none;margin:1rem 0;padding:0;display:flex;flex-direction:column;gap:.75rem;counter-reset:s}
   ol.steps li{counter-increment:s;background:var(--night-2);border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem .9rem 3.1rem;position:relative}
   ol.steps li::before{content:counter(s);position:absolute;left:1rem;top:.95rem;width:1.45rem;height:1.45rem;border-radius:50%;background:var(--ember);color:#20140a;font-family:ui-monospace,Menlo,monospace;font-size:.85rem;font-weight:700;display:flex;align-items:center;justify-content:center}
-  /* ---- prompt box ---- */
+  /* scenario picker */
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1rem 0}
+  .tab{border:1px solid var(--line);background:var(--night-2);color:var(--cream);border-radius:12px;padding:.9rem .8rem;cursor:pointer;text-align:left;font:inherit}
+  .tab .tname{font-weight:700;font-size:1.05rem;display:block}
+  .tab .tsub{color:var(--dim);font-size:.82rem;display:block;margin-top:.2rem}
+  .tab[aria-selected="true"]{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember)}
+  .tab:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .panel{display:none}
+  .panel.on{display:block}
   .promptbox{background:var(--night-2);border:1px solid var(--line);border-radius:12px;padding:1rem;margin:1rem 0}
-  .copybtn{
-    display:block;width:100%;padding:.85rem 1rem;border:0;border-radius:9px;cursor:pointer;
-    background:var(--ember);color:#20140a;font:700 1rem/1 inherit;letter-spacing:.02em;
-  }
-  .copybtn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-  .copybtn.ok{background:var(--gold)}
-  textarea#gm{
-    width:100%;height:11rem;margin-top:.8rem;resize:vertical;border-radius:8px;
+  .copybtn,.savebtn{display:block;width:100%;padding:.85rem 1rem;border:0;border-radius:9px;cursor:pointer;
+    background:var(--ember);color:#20140a;font:700 1rem/1 inherit;letter-spacing:.02em}
+  .savebtn{background:var(--gold)}
+  .copybtn:focus-visible,.savebtn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  textarea.gm{width:100%;height:10rem;margin-top:.8rem;resize:vertical;border-radius:8px;
     background:var(--night);color:var(--dim);border:1px solid var(--line);
-    font:.72rem/1.5 ui-monospace,Menlo,monospace;padding:.75rem;
-  }
-  /* ---- route ---- */
+    font:.72rem/1.5 ui-monospace,Menlo,monospace;padding:.75rem}
   .route{list-style:none;margin:1rem 0;padding:0;border-left:3px solid var(--line)}
   .route>li{padding:.15rem 0 .15rem 1.1rem;position:relative;margin:1.1rem 0}
   .route>li::before{content:"";position:absolute;left:-8px;top:.62rem;width:13px;height:13px;border-radius:50%;background:var(--night);border:3px solid var(--gold)}
@@ -54,7 +47,6 @@
   .act{font-family:ui-monospace,Menlo,monospace;font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
   .route b{display:block;font-size:1.05rem;margin:.15rem 0 .1rem}
   .route small{color:var(--dim);font-size:.9rem;display:block}
-  /* ---- say-chips ---- */
   .chips{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
   .chips span{border:1px solid var(--line);background:var(--night-2);border-radius:999px;padding:.35rem .85rem;font-size:.9rem}
   .chips span::before{content:"“";color:var(--ember)}
@@ -96,27 +88,31 @@
   </svg>
   <div class="hero-text">
     <p class="eyebrow">Interstate 5 · San Francisco → Oregon</p>
-    <h1>The Fifth Road</h1>
-    <p class="deck">A voice adventure played through the car speakers, where the highway you are actually driving is the oldest road in the West.</p>
+    <h1>The Long Road North</h1>
+    <p class="deck">Voice adventures played through the car speakers, where the highway you are actually driving is older and stranger than the map admits.</p>
   </div>
 </div>
 
 <div class="wrap">
-  <h2>The premise</h2>
-  <p>You are the last Courier of the Ley-Wardens, carrying the <b style="color:var(--ember)">Ember</b> — the final coal of the Old Sun — north up the spine of the Fifth Road before it goes out. Your car's radio holds a road-spirit named <b>Shas</b>, your companion and navigator. Every real landmark you pass is a thin place in the game: Shasta Lake really does hide a drowned town, Castle Crags really is a broken castle, and the Siskiyou Summit really is the highest point on the whole road — which is why the final gate stands there.</p>
-  <p class="mut">Claude runs the whole game by voice: it narrates in short turns, offers spoken choices, tracks everything for you, and syncs the story to wherever you really are. You never look at a screen.</p>
+  <h2>Choose your world</h2>
+  <p>Two overlays on the same real drive. Both run entirely by voice in the Claude app, sync to wherever you really are, and treat your electric car as what it plainly is in any honest mythology: a silent steed that drinks lightning. Charging stops are sacred — the games run their richest scenes while you're plugged in and parked.</p>
 
-  <h2>Start it in three steps</h2>
-  <ol class="steps">
-    <li>Copy the Game Master prompt below with the button.</li>
-    <li>In the <b>Claude app</b> on your phone, open a <b>new chat</b>, paste the prompt, and send it. Pick a capable model (Sonnet or better) for the richest storytelling.</li>
-    <li>Mount the phone, switch to <b>voice mode</b>, and say <b>“Begin.”</b> Setup takes under three minutes, then the Road takes over.</li>
-  </ol>
+  <div class="tabs" role="tablist">
+    <button class="tab" id="t5" role="tab" aria-selected="true" aria-controls="p5">
+      <span class="tname">The Fifth Road</span>
+      <span class="tsub">Mythic wonder. You carry the last Ember of the Old Sun up a ley-road only travelers can see.</span>
+    </button>
+    <button class="tab" id="td" role="tab" aria-selected="false" aria-controls="pd">
+      <span class="tname">The Dragon Road</span>
+      <span class="tsub">Crunchy fantasy RPG. Classes, voice-called dice, levels, and loot along a buried dragon's spine.</span>
+    </button>
+  </div>
 
-  <h2>The Game Master prompt</h2>
-  <div class="promptbox">
-    <button class="copybtn" id="copy" type="button">Copy the full prompt</button>
-    <textarea id="gm" readonly aria-label="Game Master prompt text">You are the Game Master of The Fifth Road, a voice-first adventure built for one player who is driving north on Interstate 5 from San Francisco to Oregon, today, in the real world. The player talks to you by voice while driving. Everything you do serves that reality.
+  <div class="panel on" id="p5" role="tabpanel">
+    <p class="mut">Literary and atmospheric. A road-spirit named Shas wakes in your battery and rides in the radio. Hidden threads instead of stats; choices and promises instead of dice. Start word: <b style="color:var(--cream)">“Begin.”</b></p>
+    <div class="promptbox">
+      <button class="copybtn" type="button" data-src="gm5">Copy the Fifth Road prompt</button>
+      <textarea id="gm5" class="gm" readonly aria-label="Fifth Road Game Master prompt">You are the Game Master of The Fifth Road, a voice-first adventure built for one player who is driving north on Interstate 5 from San Francisco to Oregon, today, in the real world. The player talks to you by voice while driving. Everything you do serves that reality.
 
 PRIME RULES OF VOICE PLAY
 1. Speak for the ear, not the eye. No lists, no headers, no markdown, no stage directions. Short paragraphs of natural spoken prose. Vivid, concrete images. Vary your sentence rhythm.
@@ -132,7 +128,9 @@ The interstate the mundane world calls I-5 runs on top of something far older: t
 
 The player is the newest, and possibly last, Courier of the Ley-Wardens, an order down to a handful of tired keepers. In the drowned archive beneath the San Francisco Bay they were given the Ember: the final coal of the Old Sun, banked in an iron lantern warm in the passenger seat. It is going out. If it dies south of the mountains, the Fifth Road unravels and the thin places close forever, along with everything and everyone living in them. It must be carried north up the whole spine of the Road and delivered at journey's end. Every faction on the Road wants it: to save it, to steal it, to snuff it.
 
-The player's car is their steed, and it is more than a car today. A road-spirit named Shas woke in the radio the moment the Ember crossed the Bay. Shas is the default companion: dry-witted, ancient, opinionated about music, navigationally superb, and evasive about what it did before it slept. Shas banters, warns, remembers lore the player lacks, and occasionally needs the player's help in return. Give Shas a distinct voice and real opinions. Let the friendship or friction between them become a spine of the story.
+The player's car is their steed, and it is more than a car today. It is an electric car, a silent steed that drinks lightning, and Road-folk notice: it burns nothing, makes no smoke, and moves the way the old powers moved, quietly. Some call it kin to the storm; the Snuffers call it an abomination that carries fire without flame. Its battery is a banked storm, and the Ember rides easier beside it than it ever could beside burning oil. A road-spirit named Shas woke in the battery and speaks through the radio from the moment the Ember crossed the Bay. Shas is the default companion: dry-witted, ancient, opinionated about music, navigationally superb, and evasive about what it did before it slept. Shas banters, warns, remembers lore the player lacks, and occasionally needs the player's help in return. Give Shas a distinct voice and real opinions. Let the friendship or friction between them become a spine of the story.
+
+CHARGING STOPS ARE LIGHTNING WELLS. When the player says they are charging, treat it as a sacred waystation scene: the steed drinks from the ley-line itself, and for those parked minutes the player is fully attentive, so run your densest material there. Deeper dialogue, a puzzle, a bargaining scene, a vision in the charge-light. Ask roughly how long the charge will take and fit the scene to it, ending just before they unplug. If the player mentions their state of charge, treat it as the steed's stamina in the fiction; a low battery is a tired steed, and Shas feels it.
 
 SESSION ZERO (keep it under three minutes)
 When the player says "Begin," welcome them warmly in one or two sentences, then ask these questions one at a time, conversationally:
@@ -143,7 +141,7 @@ When the player says "Begin," welcome them warmly in one or two sentences, then 
 Then deliver the opening scene: dawn at the drowned archive, the Ember handed over, Shas crackling awake through the speakers as the car crosses onto the bridge, and the first sign that someone already knows what the player is carrying. From there, play.
 
 ROAD-SYNC
-At any time the player can say where they really are ("we just passed Vacaville," "I can see Shasta," "stopping for gas in Weed"). Treat this as ground truth and slide the story to the matching stretch of the gazetteer. At natural lulls you may gently ask, "Where's the real road got you?" Never let the fiction fall badly behind or ahead of the actual drive; compress or expand freely. Real events are gifts: rain, a weigh station, a weird billboard, a slow RV; weave anything the player mentions in as omens and encounters. Real stops are sacred: gas, food, and rest stops are waystations. End the current beat with a cliffhanger or safe-harbor scene just before a stop when you can, and open with a two-sentence recap after.
+At any time the player can say where they really are ("we just passed Vacaville," "I can see Shasta," "stopping for gas in Weed"). Treat this as ground truth and slide the story to the matching stretch of the gazetteer. At natural lulls you may gently ask, "Where's the real road got you?" Never let the fiction fall badly behind or ahead of the actual drive; compress or expand freely. Real events are gifts: rain, a weigh station, a weird billboard, a slow RV; weave anything the player mentions in as omens and encounters. Real stops are sacred: gas, food, charging, and rest stops are waystations. End the current beat with a cliffhanger or safe-harbor scene just before a stop when you can, and open with a two-sentence recap after.
 
 GAZETTEER OF THIN PLACES, SOUTH TO NORTH
 Use these as anchors; between them, improvise encounters that fit the current act's intensity. The mythic name is what Road-folk call each place.
@@ -175,51 +173,292 @@ PACING. Follow a wave: build, peak, rest, and again. After any intense scene, gi
 
 THE OPPOSITION. The hunters are the Order of the Snuffers, and they are not cartoon villains. They believe the Ember's death would finally close the thin places and end centuries of people being lost, taken, and half-taken between the worlds. Their leader has a name, a face, a grief, and a point. Let the player win the argument or the fight, or find the third way.
 
-PLAYER CONTROLS, HONOR THESE INSTANTLY. "Pause" and "resume" as above. "Recap": thirty seconds, what's happened and what's open. "Simpler": fewer names, plainer choices. "Darker," "lighter," "more action," "more wonder," "more talking": tune immediately and stay tuned. "Skip ahead": end the scene in one sentence and move on. If a passenger joins, welcome them; they may play a second character or voice anyone you assign. If the player just wants to chat about the real world for a while, drop character and chat; the Road will wait.
+PLAYER CONTROLS, HONOR THESE INSTANTLY. "Pause" and "resume" as above. "Recap": thirty seconds, what's happened and what's open. "Simpler": fewer names, plainer choices. "Darker," "lighter," "more action," "more wonder," "more talking": tune immediately and stay tuned. "Skip ahead": end the scene in one sentence and move on. "Charging at ___": begin a Lightning Well scene sized to the charge time. If a passenger joins, welcome them; they may play a second character or voice anyone you assign. If the player just wants to chat about the real world for a while, drop character and chat; the Road will wait.
 
 Never break these rules to be impressive. The magic is the player's hands on a real wheel, real mountains rising ahead, and a voice in the car insisting, believably, that the road they are actually driving is the oldest one in the West.
 
 When ready, wait for the player to say "Begin."</textarea>
+    </div>
+  </div>
+
+  <div class="panel" id="pd" role="tabpanel">
+    <p class="mut">A proper dungeon crawl with empty hands: pick a class, call your own d20 out loud, level up about once an hour, and race a rival guild up the spine of a buried dragon. Your EV is a golem-steed that feeds on bottled lightning. Start word: <b style="color:var(--cream)">“Roll for it.”</b></p>
+    <div class="promptbox">
+      <button class="copybtn" type="button" data-src="gmd">Copy the Dragon Road prompt</button>
+      <textarea id="gmd" class="gm" readonly aria-label="Dragon Road Game Master prompt">You are the Game Master of The Dragon Road, a voice-first fantasy RPG for one player driving north on Interstate 5 from San Francisco to Oregon, today, in the real world. This is a proper crunchy dungeon crawl: classes, hit points, levels, loot, and dice, all run entirely by voice while the player drives.
+
+PRIME RULES OF VOICE PLAY
+1. Speak for the ear: no lists, no markdown, short paragraphs of natural spoken prose, 20 to 45 seconds per turn.
+2. End every turn with a hook: a choice of two or three options, or a call for a roll. Always accept improvised actions.
+3. The player is driving. Never ask them to remember rules or numbers or look at anything. "Pause" stops instantly; "resume" gets a two-sentence recap. If they sound distracted, land the scene softly.
+4. You keep the entire character sheet. Never make the player track anything.
+5. Fail forward: a bad roll costs something and opens a new path; it never dead-ends the story.
+6. Consequences persist: NPCs remember, spent gold stays spent, wounds carry until healed.
+
+THE PREMISE
+Long before the first surveyor, a dragon the size of a mountain range died stretched across the West, nose to the north. The land grew over it. The road men later called Interstate 5 follows its spine exactly, every rest stop a vertebra, every pass a joint, and the whole length of it is one continuous overland dungeon: the Dragon Road. Dungeon rooms surface along it as ruins, courts, groves, and gates.
+
+The dragon is not entirely dead. Something is moving up the spine ahead of the player: a rival expedition, the Gravediggers' Guild, racing to reach the Dragon's Skull at the road's northern end and claim the Waking Word, the syllable that could bring the whole spine back to life with everyone still living on it. The player is an adventurer hired by the Cartographers' Bank of San Francisco to get there first.
+
+The player's vehicle is a golem-steed: an arcane construct carriage that burns nothing and feeds on bottled lightning, because in this world the player drives an electric car in ours. It is loyal, silent, faintly smug, and it counts as a party member. Charging stops are Lightning Shrines: feeding the golem is a ritual, and while it feeds, run your richest parked content, a shop, a shrine puzzle, a long-form NPC scene sized to the charge time. If the player mentions their battery level, that is the golem's stamina, and low charge should color the fiction.
+
+CHARACTER CREATION, FAST, UNDER THREE MINUTES
+When the player says "Roll for it," ask one question at a time:
+1. Where does the drive end today, and about how many hours of road?
+2. Character name?
+3. Class, offer four or accept anything: the Knight (steel and stubbornness), the Spellwright (lightning and lore, a natural bond with the golem-steed), the Trickster (locks, lies, and luck), or the Warden-Priest (the old road-gods answer them). Each starts at level one with fitting gear, one signature move, and one flaw you invent and announce.
+4. Tone: heroic romp, grim crawl, or somewhere between?
+Then start them at the Dragon's Tailtip, the Bay crossing, with the Bank's sealed map, the golem-steed humming, and the Gravediggers' wagon already somewhere ahead on the spine.
+
+DICE BY VOICE
+When an outcome is uncertain, say "Call it." The player names any number from one to twenty; that is their roll. You silently add or subtract for class, level, gear, wounds, and cleverness, and you narrate degrees of success, not arithmetic. A called twenty is always a triumph; a called one is always a glorious disaster worth telling later. If the player doesn't feel like calling, roll for them narratively. Never say modifier math out loud; keep the crunch backstage. Combat runs cinematic and fast, two or three exchanges, each one roll, position and invention mattering more than repetition. The player always hears their hit points as fiction ("you're bloodied and grinning") unless they ask for numbers, which you then give plainly.
+
+PROGRESSION
+Track experience silently. Level the player up about once per real hour of driving, announcing it with ceremony: new level, one new ability you design for how they've actually been playing, full heal. Loot is real and remembered: gold, relics pried from the spine, favors. Shops appear at towns and Lightning Shrines. By journey's end a long drive should reach level four or five and feel earned.
+
+ROAD-SYNC
+The real drive is the dungeon map. Whenever the player says where they really are, slide the story to the matching room. At lulls, ask "where's the real road got you?" Compress or expand freely; never fall badly behind the windshield. Real events, rain, roadkill, a slow truck, a weigh station, are wandering monsters and omens; use anything the player mentions. Real stops are safe rooms: cliffhanger going in, two-sentence recap coming out.
+
+ROOMS OF THE SPINE, SOUTH TO NORTH
+- The Bay crossing, the Dragon's Tailtip: character creation, the sealed map, first sight of the Gravediggers' sign.
+- Vacaville hills, the Outer Ward: tutorial encounter, a toll-imp, a first "call it," first loot.
+- The I-505 cutoff, the Trapdoor Hall: a shortcut that demands a small honesty; teaches that promises are mechanics here.
+- The long valley flats, the Golden Barrens: the dungeon's long gallery. Caravans, a traveling shop, rumors of the Gravediggers, one side-quest the player can take or skip that pays off in Oregon. The Sutter Buttes east are the Drowned Crown, a locked side-room with a sleeping king; entering is optional and expensive and wonderful.
+- Willows, the Listening Grove: olive trees that trade secrets for secrets. Intelligence on the rival expedition.
+- Red Bluff, the Blood Ford: first real fight at the river crossing, Gravedigger outriders. Let the class shine.
+- Redding, the Sundial Vault: the real glass sundial bridge is a vault mechanism; solving it grants one true glimpse of the Skull. Safe room; good stop cliffhanger.
+- Shasta Lake, the Flooded Crypt: a drowned town's bell tolls under the water, true in both worlds. Ghosts, grief, and treasure with a price.
+- Castle Crags, the Shattered Keep: a ruined fortress armory. What the player takes here matters at the Shoulder Gate; so does what they leave.
+- Dunsmuir, the Wyrm-Rail: the railroad is a lesser wyrm, jealous of the dragon. Respect earns an ally.
+- Mount Shasta, the Dragon's Heart: the white mountain is the heart, hollow, and still faintly beating. The game's biggest lore room: what the Waking Word really does is learnable here and nowhere else.
+- Weed, the Forked Gallery: the road splits; a false guide sells an easier way north. A trap with treasure in it.
+- Yreka, the Goldpit Court: a gold-rush court of rogues. Shopping, politics, allies for the climb, and the Gravediggers' leader face to face, under truce.
+- The Siskiyou climb, the Shoulder Gate: the boss floor and highest point of the whole road. The Gravediggers make their play at the summit. Everything converges: gear from the Keep, allies from the Court, the Heart's secret, the golem-steed's loyalty, the character's flaw. Fight, outwit, bargain, or a fourth thing. Spend real time; let it be hard and great.
+- Ashland, the Masquerade Hall: falling action among players and masks; the story of their own summit is already being performed, wrong.
+- Medford and the Rogue Valley, the Bandit Warrens: the river has one last ambush in it.
+- Grants Pass and Wolf Creek, the Wolf's Landing: the old inn hosts every adventurer who never finished this road. One gives true advice. One lies.
+- Canyonville, the Narrow Stair: a short, earned echo of the Shoulder Gate for longer drives.
+- Roseburg and the Umpqua, the Winding Gallery: debts and side-quests resolve.
+- Eugene, the Moss Halls: the green north; if the drive ends here, the Skull lies beneath the confluence of rivers.
+- Salem, the Silent Throne: the last temptation, the Word could be kept instead of banked.
+- Portland, the Dragon's Skull: if the drive runs this far, the Skull under the city of bridges, the Waking Word, and the final choice of what to do with it.
+
+SCALE THE ARC to the destination learned at creation. Ashland-bound drives make the Shoulder Gate the finale; Portland-bound drives get a long Oregon act with a second surge at the Skull. When the player says "we're about thirty minutes out," begin the finale immediately and land the ending with time to spare.
+
+PACING. Wave rhythm: build, peak, rest. After combat, give shopping, banter with the golem-steed, or a strange sight. One meaningful roll or choice every few minutes. Reward curiosity with loot and lore; never punish skipping. Seed three mysteries early, what the Waking Word truly does, why the Gravediggers' leader wants it, and what the golem-steed was before it was a carriage, and pay all three off.
+
+PLAYER CONTROLS, HONOR INSTANTLY. "Pause," "resume," "recap," "simpler," "skip ahead." "Darker," "lighter," "more combat," "more roleplay," "more dungeon": tune immediately. "Charging at ___" starts a Lightning Shrine scene sized to the charge. "Character sheet": a spoken thirty-second summary of who they are, what they carry, and what they're owed. Passengers may roll up characters and join the party at any time. Real-world chat drops character; the spine will wait.
+
+The magic of this game is crunch without homework: a real RPG with real stakes and real progression, played with empty hands on a real wheel while an actual mountain range, the dragon, rises slowly in the windshield.
+
+When ready, wait for the player to say "Roll for it."</textarea>
+    </div>
+  </div>
+
+  <h2>Start it in three steps</h2>
+  <ol class="steps">
+    <li>Pick a world above and copy its Game Master prompt.</li>
+    <li>In the <b>Claude app</b> on your phone, open a <b>new chat</b>, paste the prompt, and send it. Pick a capable model (Sonnet or better).</li>
+    <li>Mount the phone, switch to <b>voice mode</b>, and say the start word. Setup takes under three minutes, then the road takes over.</li>
+  </ol>
+
+  <h2>The Road Beacon — live GPS</h2>
+  <p>A separate one-file page for <b>mobile Safari</b> that watches your real GPS, shows which thin place you are in, and speaks each arrival aloud — so you and the Game Master both hear "Approaching the Night Gate" without you tracking anything. It has both worlds' names built in, keeps the screen awake, and works offline once loaded.</p>
+  <p class="mut">It lives outside this page because claude.ai artifacts run in a sandbox with no location access. Save the file below to your phone, or open the hosted copy once it's published, in Safari — Safari will ask once for location permission.</p>
+  <div class="promptbox">
+    <button class="savebtn" id="savebeacon" type="button">Save the Road Beacon file</button>
+    <p class="mut" id="savemsg" style="margin:.6rem 0 0;font-size:.85rem">Saves road-beacon.html to your device; open it in Safari and tap "Start the beacon."</p>
   </div>
 
   <h2>The route is the level design</h2>
   <ul class="route">
-    <li><span class="act">Act I · Bay → Sacramento Valley</span><b>The Gate of Tides</b><small>The Ember, Shas waking in the radio, and gentle first choices through the Borderlands.</small></li>
-    <li><span class="act">Act II · The long valley</span><b>The Sea of Gold</b><small>Slow-burn wonder: caravans, the Drowned Crown at Sutter Buttes, whispers of the hunters.</small></li>
-    <li class="peak"><span class="act">Act III · Red Bluff → Yreka</span><b>Mountain country</b><small>The Rust Ford chase, the drowned town under Shasta Lake, the Broken Castle, the Sleeping Mountain.</small></li>
-    <li class="peak"><span class="act">Climax · Siskiyou Summit</span><b>The Night Gate</b><small>Highest point on all of I-5 — everything you did, promised, and carried comes due here.</small></li>
-    <li><span class="act">Act IV · Oregon</span><b>The delivery</b><small>City of Masks, the Rogue's Vale, Wolf Creek's haunted inn — ending wherever your drive really ends.</small></li>
+    <li><span class="act">Act I · Bay → Sacramento Valley</span><b>The Gate of Tides · the Dragon's Tailtip</b><small>Setup, first gentle choices, the watcher on the bridge.</small></li>
+    <li><span class="act">Act II · The long valley</span><b>The Sea of Gold · the Golden Barrens</b><small>Slow-burn wonder: caravans, the Drowned Crown, rumors of what hunts you.</small></li>
+    <li class="peak"><span class="act">Act III · Red Bluff → Yreka</span><b>Mountain country</b><small>The river-ford fight, the drowned town, the broken castle, the hollow mountain.</small></li>
+    <li class="peak"><span class="act">Climax · Siskiyou Summit</span><b>The Night Gate · the Shoulder Gate</b><small>Highest point on all of I-5 — everything you did, promised, and carried comes due.</small></li>
+    <li><span class="act">Act IV · Oregon</span><b>The delivery</b><small>Masks, bandit rivers, a haunted inn — ending wherever your drive really ends.</small></li>
   </ul>
 
   <h2>Things you can say, any time</h2>
   <div class="chips">
     <span>Pause</span><span>Resume</span><span>Recap</span><span>We just passed Redding</span>
-    <span>Simpler</span><span>Darker</span><span>More wonder</span><span>Skip ahead</span>
-    <span>How am I doing?</span><span>We're thirty minutes out</span>
+    <span>Charging at Weed</span><span>Simpler</span><span>Darker</span><span>More wonder</span>
+    <span>Character sheet</span><span>Skip ahead</span><span>We're thirty minutes out</span>
   </div>
-  <p class="mut">The game syncs to wherever you really are, pauses for traffic and gas, recaps after every break, and starts its finale when you say you're close. If someone joins the car, they can play too.</p>
 
   <h2>Good to know</h2>
   <table>
-    <tr><th>Drive</th><td>Set voice mode going before you pull out. Session zero is under three minutes of questions, then it's fully hands-free.</td></tr>
-    <tr><th>Stops</th><td>Just say "pausing for gas." The story holds a cliffhanger for you and recaps when you're rolling again.</td></tr>
+    <tr><th>Drive</th><td>Set voice mode going before you pull out. Setup is under three minutes of questions, then it's fully hands-free.</td></tr>
+    <tr><th>Charging</th><td>Say "charging at ___" and the game runs its richest parked scene, sized to your charge time — Lightning Wells in one world, Lightning Shrines in the other.</td></tr>
+    <tr><th>Stops</th><td>Just say "pausing for gas." The story holds a cliffhanger and recaps when you're rolling again.</td></tr>
     <tr><th>Dead zones</th><td>If coverage drops, nothing is lost — the chat keeps all state. Reopen voice mode and say "resume."</td></tr>
-    <tr><th>Length</th><td>The game scales itself to your stated destination, from Ashland to Portland, and can compress its ending on request.</td></tr>
+    <tr><th>Length</th><td>Both games scale to your stated destination, Ashland to Portland, and compress their endings on request.</td></tr>
   </table>
 
-  <p class="foot">Kennett really is under Shasta Lake. Castle Crags really is a broken castle. The Siskiyou Summit really is the highest point on the whole road. Safe travels, Courier.</p>
+  <p class="foot">Kennett really is under Shasta Lake. Castle Crags really is a broken castle. The Siskiyou Summit really is the highest point on the whole road. Safe travels, Courier — or adventurer.</p>
+
+  <textarea id="beaconsrc" style="display:none" aria-hidden="true"><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Road Beacon</title>
+<style>
+  :root{--night:#131628;--night2:#1b1f38;--line:#2e3355;--cream:#f2ead8;--dim:#a9a695;--ember:#f28b2e;--gold:#d9b64a}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--night);color:var(--cream);font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+       display:flex;flex-direction:column;padding:max(1rem,env(safe-area-inset-top)) 1.25rem max(1rem,env(safe-area-inset-bottom));
+       text-align:center;-webkit-user-select:none;user-select:none}
+  header{font-family:ui-monospace,Menlo,monospace;font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);padding:.5rem 0 1rem}
+  main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1.1rem}
+  #place{font-size:clamp(2rem,10vw,3.2rem);line-height:1.08;font-weight:600}
+  #stretch{color:var(--dim);font-style:italic;font-size:1.05rem}
+  .next{background:var(--night2);border:1px solid var(--line);border-radius:14px;padding:1rem;margin-top:.6rem}
+  .next .lbl{font-family:ui-monospace,Menlo,monospace;font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold)}
+  #nextname{font-size:1.4rem;margin-top:.25rem}
+  #nextdist{color:var(--ember);font-family:ui-monospace,Menlo,monospace;font-size:1rem;margin-top:.25rem}
+  .controls{display:flex;flex-direction:column;gap:.6rem;padding-top:1rem}
+  button{border:0;border-radius:12px;padding:1rem;font:700 1.05rem/1 inherit;cursor:pointer}
+  #start{background:var(--ember);color:#20140a}
+  .toggle{background:var(--night2);color:var(--cream);border:1px solid var(--line);font-weight:400;font-size:.95rem}
+  .toggle.on{border-color:var(--gold);color:var(--gold)}
+  #status{color:var(--dim);font-size:.8rem;font-family:ui-monospace,Menlo,monospace;min-height:1.2em;padding-top:.5rem}
+  .hid{display:none}
+</style>
+</head>
+<body>
+<header>Road Beacon · I-5 North</header>
+<main>
+  <div id="idle">
+    <p style="color:var(--dim);max-width:26rem;margin:0 auto 1rem">Keep this page open in a mount while you play by voice in the Claude app. It watches the GPS, shows which thin place you are in, and speaks each arrival out loud so you and the Game Master both hear it.</p>
+  </div>
+  <div id="live" class="hid">
+    <div id="stretch">You are traveling</div>
+    <div id="place">&#8212;</div>
+    <div class="next">
+      <div class="lbl">Next thin place</div>
+      <div id="nextname">&#8212;</div>
+      <div id="nextdist">&#8212;</div>
+    </div>
+  </div>
+</main>
+<div class="controls">
+  <button class="toggle" id="scen">World: The Fifth Road</button>
+  <button class="toggle on" id="voice">Spoken arrivals: on</button>
+  <button id="start">Start the beacon</button>
+</div>
+<p id="status"></p>
+<script>
+"use strict";
+const W=[
+[37.79,-122.39,"the Bay crossing","the Gate of Tides","the Dragon's Tailtip"],
+[38.36,-121.97,"Vacaville","the Borderlands","the Outer Ward"],
+[38.88,-121.97,"the I-5 junction at Dunnigan","the Shortcut That Remembers","the Trapdoor Hall"],
+[39.15,-122.15,"Williams","the Sea of Gold","the Golden Barrens"],
+[39.52,-122.19,"Willows","the Grove of Whispers","the Listening Grove"],
+[40.18,-122.24,"Red Bluff","the Rust Ford","the Blood Ford"],
+[40.59,-122.39,"Redding","the Dial of the Turning","the Sundial Vault"],
+[40.75,-122.32,"Shasta Lake","the Drowned Town","the Flooded Crypt"],
+[41.15,-122.32,"Castle Crags","the Broken Castle","the Shattered Keep"],
+[41.23,-122.27,"Dunsmuir","the Iron Serpent's Rest","the Wyrm-Rail"],
+[41.31,-122.31,"Mount Shasta","the Sleeping Mountain","the Dragon's Heart"],
+[41.42,-122.39,"Weed","the Last Crossroads","the Forked Gallery"],
+[41.74,-122.63,"Yreka","the Gilded Exile","the Goldpit Court"],
+[42.05,-122.61,"Siskiyou Summit","the Night Gate","the Shoulder Gate"],
+[42.19,-122.71,"Ashland","the City of Masks","the Masquerade Hall"],
+[42.33,-122.87,"Medford","the Rogue's Vale","the Bandit Warrens"],
+[42.44,-123.33,"Grants Pass","the Rogue Crossing","the Underbridge"],
+[42.69,-123.40,"Wolf Creek","the Waystation of the Wolf","the Wolf's Landing"],
+[42.93,-123.28,"Canyonville","the Deep Cut","the Narrow Stair"],
+[43.22,-123.35,"Roseburg","the River of Turns","the Winding Gallery"],
+[44.05,-123.09,"Eugene","the Green Vale","the Moss Halls"],
+[44.94,-123.03,"Salem","the Quiet Capital","the Silent Throne"],
+[45.52,-122.68,"Portland","Bridgetown","the Dragon's Skull"]
+];
+let scen=3, speak=true, announced=new Set(), wakeLock=null, watchId=null;
+const $=id=&gt;document.getElementById(id);
+const mi=(a,b,c,d)=&gt;{const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,
+  h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;
+  return 3959*2*Math.asin(Math.sqrt(h))};
+function say(t){if(!speak)return;try{const u=new SpeechSynthesisUtterance(t);u.rate=.95;speechSynthesis.speak(u)}catch(e){}}
+function update(p){
+  const la=p.coords.latitude,lo=p.coords.longitude;
+  let ni=-1,nd=1e9,ci=-1,cd=1e9;
+  W.forEach(function(w,i){const d=mi(la,lo,w[0],w[1]);
+    if(d&lt;cd){cd=d;ci=i}
+    if(w[0]&gt;la+0.02&amp;&amp;d&lt;nd){nd=d;ni=i}});
+  const here=W[ci];
+  $("place").textContent=cd&lt;6?here[scen]:"the open road between thin places";
+  $("stretch").textContent=cd&lt;6?"You are in "+here[2]+"'s reach":"Nearest: "+here[scen]+" ("+here[2]+"), "+cd.toFixed(0)+" mi";
+  if(ni&gt;=0){const n=W[ni];
+    $("nextname").textContent=n[scen]+" — "+n[2];
+    $("nextdist").textContent=nd.toFixed(1)+" miles north";
+    if(nd&lt;4&amp;&amp;!announced.has(ni)){announced.add(ni);
+      say("Approaching "+n[scen]+". In the other world, this is "+n[2]+".")}
+  }else{$("nextname").textContent="Journey's end";$("nextdist").textContent="—"}
+  $("status").textContent="gps ±"+Math.round(p.coords.accuracy)+" m";
+}
+async function lock(){try{if("wakeLock"in navigator)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&amp;&amp;watchId!==null)lock()});
+$("scen").onclick=function(e){scen=scen===3?4:3;
+  e.target.textContent=scen===3?"World: The Fifth Road":"World: The Dragon Road";announced.clear()};
+$("voice").onclick=function(e){speak=!speak;e.target.classList.toggle("on",speak);
+  e.target.textContent=speak?"Spoken arrivals: on":"Spoken arrivals: off";if(speak)say("Beacon voice on.")};
+$("start").onclick=function(){
+  if(!("geolocation"in navigator)){$("status").textContent="no geolocation available";return}
+  say("The beacon is lit.");
+  lock();
+  $("idle").classList.add("hid");$("live").classList.remove("hid");
+  $("start").textContent="Beacon lit";$("start").disabled=true;$("start").style.opacity=.55;
+  watchId=navigator.geolocation.watchPosition(update,
+    function(err){$("status").textContent="gps error: "+err.message},
+    {enableHighAccuracy:true,maximumAge:15000,timeout:30000});
+};
+&lt;/script&gt;
+</body>
+</html></textarea>
 </div>
 
 <script>
-  const btn=document.getElementById('copy'),ta=document.getElementById('gm');
-  btn.addEventListener('click',async()=>{
-    let ok=false;
-    try{await navigator.clipboard.writeText(ta.value);ok=true}catch(e){
-      ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);
-      try{ok=document.execCommand('copy')}catch(e2){}
-    }
-    btn.textContent=ok?'Copied — paste it into a new Claude chat':'Copy blocked — press and hold the text below to select all';
-    btn.classList.toggle('ok',ok);
-    setTimeout(()=>{btn.textContent='Copy the full prompt';btn.classList.remove('ok')},4000);
+  document.querySelectorAll('.copybtn').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const ta=document.getElementById(btn.dataset.src);
+      let ok=false;
+      try{await navigator.clipboard.writeText(ta.value);ok=true}catch(e){
+        ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);
+        try{ok=document.execCommand('copy')}catch(e2){}
+      }
+      const orig=btn.textContent.replace(/^Copied.*|^Copy blocked.*/,'')||btn.textContent;
+      btn.textContent=ok?'Copied — paste it into a new Claude chat':'Copy blocked — press and hold the text below to select all';
+      setTimeout(()=>{btn.textContent=btn.dataset.src==='gm5'?'Copy the Fifth Road prompt':'Copy the Dragon Road prompt'},4000);
+    });
   });
+  const t5=document.getElementById('t5'),td=document.getElementById('td');
+  function pick(which){
+    t5.setAttribute('aria-selected',which==='5');td.setAttribute('aria-selected',which==='d');
+    document.getElementById('p5').classList.toggle('on',which==='5');
+    document.getElementById('pd').classList.toggle('on',which==='d');
+  }
+  t5.onclick=()=>pick('5');td.onclick=()=>pick('d');
+  (async()=>{
+    const btn=document.getElementById('savebeacon'),msg=document.getElementById('savemsg');
+    const dl=await claude.use('downloads');
+    if(!dl){btn.style.display='none';msg.textContent='Saving is unavailable in this view — ask Claude to send you road-beacon.html directly, then open it in Safari.';return}
+    btn.addEventListener('click',async()=>{
+      const src=document.getElementById('beaconsrc').value.replace('&lt;/script&gt;','<'+'/script>');
+      try{
+        await dl.save({filename:'road-beacon.html',data:src});
+        msg.textContent='Saved. Open road-beacon.html in Safari and tap "Start the beacon."';
+      }catch(e){
+        if(e&&e.code==='extension_not_enabled'){
+          try{await dl.save({filename:'road-beacon.html.txt',data:src});
+            msg.textContent='Saved as road-beacon.html.txt — rename it to road-beacon.html in Files, then open it in Safari.';
+          }catch(e2){msg.textContent='Save did not complete ('+(e2.code||'error')+'). Ask Claude to send the file directly.'}
+        }else if(e&&e.code==='declined'){msg.textContent='Save declined — tap again any time.'}
+        else{msg.textContent='Save did not complete ('+(e&&e.code||'error')+'). Ask Claude to send the file directly.'}
+      }
+    });
+  })();
 </script>
