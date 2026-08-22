@@ -42,12 +42,25 @@
   .wreal{fill:#7e7b6d;font-size:8.5px}
   .wdot{fill:var(--night);stroke:var(--gold);stroke-width:2}
   .wdot.passed{fill:var(--gold)}
+  /* High-visibility day mode, shared with the console via lr_vis */
+  html[data-vis="day"]{--night:#f2eee1;--night2:#ffffff;--line:#8f8a74;--cream:#141414;--dim:#3f3c2e;--ember:#a84a06;--gold:#6f5a17;--bad:#a11111;--ok:#1c6e2c}
+  html[data-vis="day"] .mapbg{fill:#efeada}
+  html[data-vis="day"] .mapfade{fill:none}
+  html[data-vis="day"] .roadunder{stroke:#cdc6ae}
+  html[data-vis="day"] .leyline{stroke:#6f5a17}
+  html[data-vis="day"] .wname{fill:#141414;font-weight:700}
+  html[data-vis="day"] .wreal{fill:#4a4636}
+  html[data-vis="day"] #gm{font-size:1.12rem;font-weight:500}
+  html[data-vis="day"] #region{font-weight:700}
 </style>
 </head>
 <body>
 <header>
   <span class="brand">The Long Road · Live Map</span>
-  <span id="live"><span id="dot"></span><span id="age">connecting…</span></span>
+  <span id="live">
+    <button id="vis" type="button" style="background:none;border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:.3rem .6rem;font:inherit;font-size:.75rem;cursor:pointer">Day</button>
+    <span id="dot"></span><span id="age">connecting…</span>
+  </span>
 </header>
 <div class="cols">
   <div id="mapwrap"><div id="waiting">Waiting for the console to report…<br>Start the drive on the driver's screen and this map wakes up.</div></div>
@@ -128,12 +141,12 @@ function buildMap(){
   grad.appendChild(el("stop",{offset:"0","stop-color":"#54345c","stop-opacity":".35"}));
   grad.appendChild(el("stop",{offset:".18","stop-color":"#131628","stop-opacity":"0"}));
   defs.appendChild(grad);svg.appendChild(defs);
-  svg.appendChild(el("rect",{width:VW,height:H,fill:"#131628"}));
-  svg.appendChild(el("rect",{width:VW,height:H,fill:"url(#north)"}));
+  svg.appendChild(el("rect",{class:"mapbg",width:VW,height:H,fill:"#131628"}));
+  svg.appendChild(el("rect",{class:"mapfade",width:VW,height:H,fill:"url(#north)"}));
   const pts=W.map(w=>[X(w[1]),Y(w[0])]);
   const d=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
-  svg.appendChild(el("path",{d,fill:"none",stroke:"#22263f","stroke-width":10,"stroke-linejoin":"round","stroke-linecap":"round"}));
-  svg.appendChild(el("path",{d,fill:"none",stroke:"#d9b64a","stroke-width":2.2,"stroke-dasharray":"1 7","stroke-linecap":"round"}));
+  svg.appendChild(el("path",{class:"roadunder",d,fill:"none",stroke:"#22263f","stroke-width":10,"stroke-linejoin":"round","stroke-linecap":"round"}));
+  svg.appendChild(el("path",{class:"leyline",d,fill:"none",stroke:"#d9b64a","stroke-width":2.2,"stroke-dasharray":"1 7","stroke-linecap":"round"}));
   // Stagger labels in tightly-packed stretches (the Shasta cluster) and drop
   // the real-name subtext where rows would collide.
   let lastSide="",lastY=-999;
@@ -221,6 +234,14 @@ async function poll(){
     $("dot").className="";$("age").textContent="offline";
   }
 }
+function setVis(v){
+  document.documentElement.dataset.vis=v;
+  try{localStorage.setItem("lr_vis",v)}catch(e){}
+  $("vis").textContent=v==="day"?"Night":"Day";
+}
+$("vis").addEventListener("click",()=>setVis(document.documentElement.dataset.vis==="day"?"night":"day"));
+setVis(localStorage.getItem("lr_vis")||"night");
+
 poll();setInterval(poll,5000);
 </script>
 </body>

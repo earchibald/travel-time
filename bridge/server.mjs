@@ -135,6 +135,9 @@ function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type, x-bridge-token");
+  // Chrome Private Network Access: a public https page calling localhost gets
+  // a preflight that must be answered with this header, or the request hangs.
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
 }
 
 function sendJSON(res, code, obj) {

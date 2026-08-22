@@ -8,6 +8,13 @@
 <title>Long Road Console</title>
 <style>
   :root{--night:#131628;--night2:#1b1f38;--line:#2e3355;--cream:#f2ead8;--dim:#a9a695;--ember:#f28b2e;--gold:#d9b64a;--bad:#e05d5d;--ok:#7bc47f}
+  /* High-visibility day mode: bright ground, near-black ink, darkened accents
+     that keep AAA-ish contrast in direct sunlight. */
+  html[data-vis="day"]{--night:#f2eee1;--night2:#ffffff;--line:#8f8a74;--cream:#141414;--dim:#3f3c2e;--ember:#a84a06;--gold:#6f5a17;--bad:#a11111;--ok:#1c6e2c}
+  html[data-vis="day"] #bigbtn,html[data-vis="day"] ol.steps li::before,
+  html[data-vis="day"] #settings .btns button{color:#fff}
+  html[data-vis="day"] #gmtext{font-size:1.15rem;font-weight:500}
+  html[data-vis="day"] #state{font-weight:700}
   *{box-sizing:border-box;margin:0}
   html,body{height:100%}
   body{background:var(--night);color:var(--cream);
@@ -53,7 +60,10 @@
 <body>
 <header>
   <span class="brand">Long Road Console</span>
-  <button id="gear" type="button">Settings</button>
+  <span>
+    <button id="vis" type="button">Day</button>
+    <button id="gear" type="button">Settings</button>
+  </span>
 </header>
 <main>
   <div id="scenario">The Fifth Road</div>
@@ -85,7 +95,7 @@
     <input id="bridgeurl" type="text" autocomplete="off" placeholder="http://localhost:8787">
     <label for="btoken">Bridge token (printed when the bridge starts)</label>
     <input id="btoken" type="password" autocomplete="off" placeholder="paste once">
-    <div id="bridgewarn">This page's https origin cannot call a plain-http bridge from here. Safari blocks even localhost; Chrome allows localhost only. The reliable way: open the console the bridge itself serves — <b>http://localhost:8787/</b> — same origin, zero setup, token auto-filled. On a phone, "localhost" is the phone itself — use the API-key provider there instead.</div>
+    <div id="bridgewarn">This https page reaching a local bridge is browser-restricted: Safari blocks it outright, and Chrome holds the request until you approve a "local network access" permission prompt by the address bar. The reliable way: open the console the bridge itself serves — <b>http://localhost:8787/</b> — same origin, zero setup, token auto-filled. On a phone, "localhost" is the phone itself — use the API-key provider there instead.</div>
     <label for="bmodel">Model</label>
     <select id="bmodel">
       <option value="claude-sonnet-5">Sonnet 5 — recommended</option>
@@ -488,6 +498,8 @@ function handleUtterance(raw){
     say("You can switch to the fifth road, the dragon road, or corridor five. Which one?");
     return;
   }
+  if(/^(day mode|high visibility|bright mode)$/.test(t)){setVis("day");say("Day mode.");return}
+  if(/^(night mode|dark mode)$/.test(t)){setVis("night");say("Night mode.");return}
   if(/^(save|save the game|save game)$/.test(t)){say("Saved. Every word is kept as we go — you can stop or switch worlds any time.");return}
   if(/^(restart the game|new game|start over)$/.test(t)){
     confirmRestartUntil=Date.now()+20000;
@@ -587,12 +599,22 @@ $("testconn").addEventListener("click",async()=>{
 
 /* ---------- idle road narration ---------- */
 setInterval(()=>{
+  if(running)pushState(false); // heartbeat: map recovers after a bridge restart
   if(running&&!paused&&!busy&&!speaking&&pendingNotes.length&&Date.now()-lastExchange>180000){
     gmTurn("[console: the road note above just arrived and the player has been quiet; narrate the approach briefly and re-hook them.]");
   }
 },30000);
 
+/* ---------- visibility mode ---------- */
+function setVis(v){
+  document.documentElement.dataset.vis=v;
+  try{localStorage.setItem("lr_vis",v)}catch(e){}
+  $("vis").textContent=v==="day"?"Night":"Day";
+}
+$("vis").addEventListener("click",()=>setVis(document.documentElement.dataset.vis==="day"?"night":"day"));
+
 /* ---------- boot ---------- */
+setVis(localStorage.getItem("lr_vis")||"night");
 setScenario(scn,false);
 if("speechSynthesis"in window)speechSynthesis.getVoices();
 </script>
