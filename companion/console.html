@@ -166,7 +166,7 @@ const LS={provider:"lr_provider",key:"lr_key",amodel:"lr_model",bridge:"lr_bridg
 let scn=localStorage.getItem(LS.scn)||"fifth";
 let prompts={};
 let running=false,paused=false,muted=false,busy=false;
-let rec=null,recWanted=false;
+let rec=null,recWanted=false,recActive=false;
 let wakeLock=null,watchId=null;
 let lastFix=null,lastWpt=-1,pendingNotes=[],lastExchange=0;
 let confirmRestartUntil=0;
@@ -206,12 +206,24 @@ async function loadPrompt(id){
   return prompts[id];
 }
 
-/* ---------- speech synthesis ---------- */
-let speakQueue=[],speaking=false;
+/* ---------- speech synthesis ----------
+   WebKit gives no dependable completion signal. When the tab loses audio focus
+   — backgrounded, or another tab takes the speakers — Safari accepts the
+   utterance and then fires neither onend nor onerror. A chain built only on
+   onend stalls there for good, and drainSpeech is the one thing that hands the
+   microphone back, so the console goes mute and deaf at the same moment.
+   Every utterance therefore carries its own deadline, and housekeep() sweeps
+   for a pipeline that has stopped making progress. ---------- */
+let speakQueue=[],speaking=false,speechProgressAt=0,utterTimer=null,speechGen=0;
 function pickVoice(){
   const vs=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.startsWith("en"));
   return vs.find(v=>/ava|samantha|serena|daniel/i.test(v.name))||vs[0]||null;
 }
+// Rough spoken length: about 14 characters a second at rate 1, plus slack for
+// the synthesizer's lead-in. Bounded at both ends so one long sentence cannot
+// wedge the console and one short word does not trip the deadline early.
+function utterMs(text,rate){return Math.min(30000,Math.max(3000,text.length/14*1000/(rate||1)+2000))}
+function clearUtterTimer(){if(utterTimer){clearTimeout(utterTimer);utterTimer=null}}
 function say(text,onDone){
   const chunks=text.match(/[^.!?]+[.!?]+["']?\s*|[^.!?]+$/g)||[text];
   speakQueue.push({chunks,onDone});
@@ -219,21 +231,45 @@ function say(text,onDone){
 }
 function drainSpeech(){
   const item=speakQueue.shift();
-  if(!item){speaking=false;setTimeout(()=>{if(running&&!paused)startRec()},300);return}
+  // A paused or muted console keeps its microphone open on purpose: "resume"
+  // and "start listening" are the only ways back, so both must be heard.
+  if(!item){speaking=false;clearUtterTimer();setTimeout(()=>{if(running)startRec()},300);return}
   speaking=true;stopRec();
   setState("speaking","speaking");
   let i=0;
   const voice=pickVoice(),rate=parseFloat(cfg(LS.rate,"0.95"));
   const next=()=>{
+    clearUtterTimer();
     if(i>=item.chunks.length){if(item.onDone)item.onDone();drainSpeech();return}
-    const u=new SpeechSynthesisUtterance(item.chunks[i++].trim());
+    const text=item.chunks[i++].trim();
+    const u=new SpeechSynthesisUtterance(text);
     if(voice)u.voice=voice;u.rate=rate;
-    u.onend=next;u.onerror=next;
+    // gen fences a stalled utterance that wakes up later: once stopSpeaking has
+    // moved on, its late onend must not restart narration over the top.
+    const gen=speechGen;
+    let advanced=false,nudged=false;
+    const advance=()=>{if(advanced||gen!==speechGen)return;advanced=true;speechProgressAt=Date.now();next()};
+    const deadline=()=>{
+      if(advanced||gen!==speechGen)return;
+      // One nudge first: a synthesizer that is merely suspended picks up again.
+      if(!nudged&&document.visibilityState==="visible"){
+        nudged=true;try{speechSynthesis.resume()}catch(e){}
+        utterTimer=setTimeout(deadline,utterMs(text,rate));
+        return;
+      }
+      abandonSpeech();
+    };
+    u.onend=advance;u.onerror=advance;
+    speechProgressAt=Date.now();
+    utterTimer=setTimeout(deadline,utterMs(text,rate));
     speechSynthesis.speak(u);
   };
   next();
 }
-function stopSpeaking(){speakQueue=[];try{speechSynthesis.cancel()}catch(e){}speaking=false}
+// Give up on audio the synthesizer swallowed and hand the console back to the
+// microphone. The reply is already on screen, so only the narration is lost.
+function abandonSpeech(){stopSpeaking();if(running)startRec()}
+function stopSpeaking(){speechGen++;speakQueue=[];clearUtterTimer();try{speechSynthesis.cancel()}catch(e){}speaking=false}
 
 /* ---------- speech recognition ---------- */
 function makeRec(){
@@ -247,7 +283,12 @@ function makeRec(){
     const t=res[0].transcript.trim();
     if(t)handleUtterance(t);
   };
-  r.onend=()=>{if(recWanted&&!speaking)try{r.start()}catch(e){}};
+  // recActive tracks whether the recognizer is really running. Safari kills it
+  // when the tab goes to the background, and the restart below can throw if it
+  // is not ready yet — one silent failure would otherwise leave us deaf for
+  // good, so housekeep() watches this flag and tries again.
+  r.onstart=()=>{recActive=true};
+  r.onend=()=>{recActive=false;if(recWanted&&!speaking)try{r.start()}catch(e){}};
   r.onerror=e=>{if(e.error==="not-allowed"){recWanted=false;speakErr("I don't have microphone permission. Enable it for this site, then tap Start again.")}};
   return r;
 }
@@ -521,9 +562,32 @@ function handleUtterance(raw){
 
 /* ---------- lifecycle ---------- */
 async function lock(){try{if("wakeLock"in navigator)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}}
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&running)lock()});
+/* ---------- housekeeper ----------
+   Every audio failure on this page ends the same way: the console falls silent
+   with no event left to wake it. This sweep restores two invariants — speech
+   that claims to be running must be making progress, and a running console
+   must have an open microphone. The per-utterance deadline is the fast path;
+   this is the outer net, so its threshold sits above the worst deadline chain
+   (30s, one nudge, 30s more) to keep the two from fighting. ---------- */
+const SPEECH_STALL_MS=75000;
+function housekeep(){
+  if(!running||document.visibilityState!=="visible")return;
+  if(speaking){if(Date.now()-speechProgressAt>SPEECH_STALL_MS)abandonSpeech();return}
+  if(!busy&&recWanted&&!recActive)startRec();
+}
+setInterval(housekeep,4000);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="visible"||!running)return;
+  lock();
+  // Back from the background: Safari may have left the synthesizer suspended
+  // mid-sentence and killed recognition outright. Nudge the synthesizer, then
+  // let the deadline collect it if the nudge does not take; housekeep reopens
+  // the microphone as soon as nothing is trying to speak.
+  if(speaking)try{speechSynthesis.resume()}catch(e){}
+  housekeep();
+});
 function stopAll(){
-  running=false;paused=false;queuedTurn=null;stopRec();stopSpeaking();
+  running=false;paused=false;turnQueue=[];stopRec();stopSpeaking();
   if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}
   if(bridgeGeoTimer){clearInterval(bridgeGeoTimer);bridgeGeoTimer=null}
   $("bigbtn").textContent="Start the drive";$("bigbtn").classList.remove("stop");

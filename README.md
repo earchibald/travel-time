@@ -22,6 +22,13 @@ Voice-playable adventure games for the San Francisco → Oregon drive on I-5.
 
 `companion/console.html` runs the whole experience hands-free in one page: speech recognition in, Game Master reply out loud, GPS road-sync injected automatically, wake lock, and per-world saves in localStorage. Voice commands: pause, resume, save the game, switch to <world>, restart the game (with confirmation), retry, stop listening / start listening, end the session. Providers (Settings): Claude bridge (laptop OAuth via the Agent SDK), Anthropic API key, or any OpenAI-compatible endpoint (base URL + key + model). Scenario prompts are fetched from `game/*.md` (single source of truth) and cached for dead zones.
 
+The console's audio pipeline has regression tests. They load the page's script
+into a stubbed browser and drive the Safari failure modes directly:
+
+```
+node --test "test/*.test.mjs"
+```
+
 ## The scenarios
 
 Both run as Game Master prompts in the Claude mobile app's voice mode, sync to the real drive when the player states a location, and treat the player's EV as a lightning-fed steed. Charging stops trigger dense parked scenes.
